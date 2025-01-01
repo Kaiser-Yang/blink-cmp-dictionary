@@ -1,20 +1,21 @@
 --- @module 'blink.cmp'
 
 --- @class (exact) blink-cmp-dictionary.DocumentationOptions
---- @field enable boolean
+--- @field enable boolean|fun(context: blink.cmp.Context, prefix: string): boolean
 --- @field get_command? string[]|fun(context: blink.cmp.Context, prefix: string): string[]
 
 --- @class (exact) blink-cmp-dictionary.Options
---- @field prefix_min_len? number # Minimum length of prefix to trigger completion
---- @field get_prefix? fun(context: blink.cmp.Context): string # How to get the prefix
---- @field rg_additional_args? string[]| fun(context: blink.cmp.Context, prefix: string): string[] # Additional arguments for rg
---- @field dictionary_path? string[] # The path to the dictionary file
+--- @field get_prefix? string|fun(context: blink.cmp.Context): string
+--- @field prefix_min_len? number|fun(context: blink.cmp.Context, prefix: string): number
+--- @field get_command? string[]|fun(context: blink.cmp.Context, prefix: string): string[]
+--- @filed output_separator? string|func(context: blink.cmp.Context, prefix: string): string
 --- @field documentation? blink-cmp-dictionary.DocumentationOptions
 
 --- @class blink-cmp-dictionary.DictionarySource : blink.cmp.Source
 --- @field get_completions? fun(self: blink.cmp.Source, context: blink.cmp.Context, callback: fun(response: blink.cmp.CompletionResponse | nil)):  nil
 
 local default = require('blink-cmp-dictionary.default')
+local utils = require('blink-cmp-dictionary.utils')
 
 local DictionarySource = {}
 DictionarySource.__index = DictionarySource
@@ -26,28 +27,32 @@ function DictionarySource.new(opts)
     return self
 end
 
+--- We always do this synchronously, let blink handle the async part
 --- @param context blink.cmp.Context
 function DictionarySource:get_completions(context, resolve)
-    local prefix = self.config.get_prefix(context)
+    local prefix = utils.get_option(self.config.get_prefix, context)
     if #prefix < self.config.prefix_min_len then
+        -- TODO: add log here
+        resolve()
+        return
+    end
+    local search_cmd = vim.tbl_map(function(arg)
+        return arg:gsub('${prefix}', prefix)
+    end, utils.get_option(self.config.get_command, context, prefix))
+    if not utils.truthy(search_cmd) then
+        -- TODO: add log here
         resolve()
         return
     end
     local match_list = {}
-    local cmd = { 'rg' }
-    cmd = vim.list_extend(cmd,
-        type(self.config.rg_additional_args) == 'function' and
-        self.config.rg_additional_args(context, prefix) or
-        self.config.rg_additional_args)
-    cmd = vim.list_extend(cmd, { '--', prefix })
-    for _, path in ipairs(self.config.dictionary_path) do
-        cmd[#cmd + 1] = vim.fn.expand(path)
-    end
-    vim.system(cmd, nil, function(result)
-        if result.code ~= 0 then
-            return
+    vim.system(search_cmd, nil, function(result)
+        if not utils.truthy(result.code) then
+            -- TODO: add log here
         end
-        match_list = vim.split(result.stdout, '\n')
+        if utils.truthy(result.stdout) then
+            local separator = utils.get_option(self.config.output_separator, context, prefix)
+            match_list = vim.split(result.stdout, separator)
+        end
     end):wait()
     local items = {}
     vim.iter(match_list):each(function(match)
@@ -57,27 +62,30 @@ function DictionarySource:get_completions(context, resolve)
             insertText = match,
         }
     end)
-    if self.config.documentation.enable then
+    if utils.truthy(utils.get_option(self.config.documentation.enable, context, prefix)) then
         for _, word in ipairs(match_list) do
+            --- We don't get the documentation right now,
+            --- we will get it when the user hovers over the item, because for some commands
+            --- it might be expensive to get the documentation for all items
             items[word].documentation = {
                 --- @param opts blink.cmp.SourceRenderDocumentationOpts
                 render = function(opts)
-                    cmd = vim.tbl_map(function(arg)
+                    local doc_cmd = vim.tbl_map(function(arg)
                         return arg:gsub('${word}', opts.item.label)
-                    end, self.config.documentation.get_command(context, prefix))
-                    local doc
-                    vim.system(cmd, nil, function(result)
-                        -- 'wn' will always return non-zero, ignore it
-                        if result.code ~= 0 and cmd[1] ~= 'wn' then
-                            return
-                        end
-                        if result.stdout and result.stdout ~= '' then
-                            doc = result.stdout
-                        end
-                    end):wait()
-                    if doc then
-                        opts.default_implementation({ documentation = doc })
+                    end, utils.get_option(self.config.documentation.get_command, context, prefix))
+                    if not utils.truthy(doc_cmd) then
+                        -- TODO: add log here
+                        return
                     end
+                    local doc
+                    vim.system(doc_cmd, nil, function(result)
+                        if result.code ~= 0 then
+                            -- TODO: add log here
+                        end
+                        doc = result.stdout
+                    end):wait()
+                    if doc:match('^%s*$') then doc = nil end
+                    opts.default_implementation({ documentation = doc })
                 end
             }
         end
@@ -89,6 +97,7 @@ function DictionarySource:get_completions(context, resolve)
     })
 end
 
+-- TODO: add highlight
 -- vim.api.nvim_set_hl(0, 'BlinkCmpDictionary', { link = 'Search', default = true })
 -- local highlight_ns_id = 0
 -- pcall(function()

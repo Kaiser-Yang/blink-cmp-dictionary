@@ -26,30 +26,16 @@ end
 
 --- @type blink-cmp-dictionary.Options
 local default = {
-    prefix_min_len = 3,
     --- @param context blink.cmp.Context
     --- @return string
     get_prefix = function(context)
         return match_prefix(context.line:sub(1, context.cursor[2]))
     end,
-    rg_additional_args = {
-        '--color=never',
-        '--no-line-number',
-        '--no-messages',
-        '--no-filename',
-        '--ignore-case', -- or you can use '--case-sensitive' or '--smart-case'
-    },
-    dictionary_path = {},
+    prefix_min_len = 3,
+    -- output will be separated by vim.split(result.stdout, output_separator)
+    output_separator = '\n',
     documentation = {
         enable = false,
-        --- @return string[]
-        get_command = function(_, _)
-            return {
-                'wn',
-                '${word}', -- This will be replaced with the matched word
-                '-over'
-            }
-        end,
-    },
+    }
 }
 return default
