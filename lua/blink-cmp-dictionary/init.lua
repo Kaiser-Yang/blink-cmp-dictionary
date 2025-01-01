@@ -84,7 +84,7 @@ function DictionarySource:get_completions(context, resolve)
                         end
                         doc = result.stdout
                     end):wait()
-                    if doc:match('^%s*$') then doc = nil end
+                    doc = not doc and '' or doc:match('^%s*$') and '' or doc
                     opts.default_implementation({ documentation = doc })
                 end
             }
