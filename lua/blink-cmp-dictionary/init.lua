@@ -8,7 +8,7 @@
 --- @field get_prefix? string|fun(context: blink.cmp.Context): string
 --- @field prefix_min_len? number|fun(context: blink.cmp.Context, prefix: string): number
 --- @field get_command? string[]|fun(context: blink.cmp.Context, prefix: string): string[]
---- @filed output_separator? string|func(context: blink.cmp.Context, prefix: string): string
+--- @field output_separator? string|fun(context: blink.cmp.Context, prefix: string): string
 --- @field documentation? blink-cmp-dictionary.DocumentationOptions
 
 --- @class blink-cmp-dictionary.DictionarySource : blink.cmp.Source
