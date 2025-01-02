@@ -5,9 +5,9 @@ do
 
     local non_word_character = vim.lpeg.P(1) - word_character
 
-    -- A word can start with any number of non-starting characters, followed by
-    -- more than one word character, and then any number of non-middle characters.
-    -- The word is captured.
+    -- A word can start with any number of non-word characters, followed by
+    -- at least one word character, and then any number of non-word characters.
+    -- The word part is captured.
     word_pattern = vim.lpeg.Ct(
         (
             non_word_character ^ 0
