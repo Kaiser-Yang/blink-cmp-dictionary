@@ -1,8 +1,8 @@
 --- @module 'blink.cmp'
 
 --- @class (exact) blink-cmp-dictionary.DocumentationOptions
---- @field enable boolean|fun(context: blink.cmp.Context, prefix: string): boolean
---- @field get_command? string[]|fun(context: blink.cmp.Context, prefix: string): string[]
+--- @field enable boolean|fun(item: blink.cmp.CompletionItem): boolean
+--- @field get_command? string[]|fun(item: blink.cmp.CompletionItem): string[]
 
 --- @class (exact) blink-cmp-dictionary.Options
 --- @field get_prefix? string|fun(context: blink.cmp.Context): string
@@ -29,11 +29,11 @@ end
 
 --- We always do this synchronously, let blink handle the async part
 --- @param context blink.cmp.Context
-function DictionarySource:get_completions(context, resolve)
+function DictionarySource:get_completions(context, callback)
     local prefix = utils.get_option(self.config.get_prefix, context)
     if #prefix < self.config.prefix_min_len then
         -- TODO: add log here
-        resolve()
+        callback()
         return
     end
     local search_cmd = vim.tbl_map(function(arg)
@@ -41,7 +41,7 @@ function DictionarySource:get_completions(context, resolve)
     end, utils.get_option(self.config.get_command, context, prefix))
     if not utils.truthy(search_cmd) then
         -- TODO: add log here
-        resolve()
+        callback()
         return
     end
     local match_list = {}
@@ -62,39 +62,33 @@ function DictionarySource:get_completions(context, resolve)
             insertText = match,
         }
     end)
-    if utils.truthy(utils.get_option(self.config.documentation.enable, context, prefix)) then
-        for _, word in ipairs(match_list) do
-            --- We don't get the documentation right now,
-            --- we will get it when the user hovers over the item, because for some commands
-            --- it might be expensive to get the documentation for all items
-            items[word].documentation = {
-                --- @param opts blink.cmp.SourceRenderDocumentationOpts
-                render = function(opts)
-                    local doc_cmd = vim.tbl_map(function(arg)
-                        return arg:gsub('${word}', opts.item.label)
-                    end, utils.get_option(self.config.documentation.get_command, context, prefix))
-                    if not utils.truthy(doc_cmd) then
-                        -- TODO: add log here
-                        return
-                    end
-                    local doc
-                    vim.system(doc_cmd, nil, function(result)
-                        if result.code ~= 0 then
-                            -- TODO: add log here
-                        end
-                        doc = result.stdout
-                    end):wait()
-                    doc = not doc and '' or doc:match('^%s*$') and '' or doc
-                    opts.default_implementation({ documentation = doc })
-                end
-            }
-        end
-    end
-    resolve({
+    callback({
         is_incomplete_forward = false,
         is_incomplete_backward = false,
         items = vim.tbl_values(items)
     })
+end
+
+function DictionarySource:resolve(item, callback)
+    if utils.truthy(utils.get_option(self.config.documentation.enable, item)) then
+        local doc_cmd = vim.tbl_map(function(arg)
+            return arg:gsub('${word}', item.label)
+        end, utils.get_option(self.config.documentation.get_command, item))
+        if not utils.truthy(doc_cmd) then
+            -- TODO: add log here
+            callback(item)
+            return
+        end
+        vim.system(doc_cmd, nil, function(result)
+            if result.code ~= 0 then
+                -- TODO: add log here
+            end
+            if utils.truthy(result.stdout) then
+                item.documentation = result.stdout
+            end
+        end):wait()
+    end
+    callback(item)
 end
 
 -- TODO: add highlight
