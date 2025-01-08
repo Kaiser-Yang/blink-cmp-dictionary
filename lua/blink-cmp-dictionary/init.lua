@@ -31,7 +31,7 @@ end
 --- @param context blink.cmp.Context
 function DictionarySource:get_completions(context, callback)
     local prefix = utils.get_option(self.config.get_prefix, context)
-    if #prefix < self.config.prefix_min_len then
+    if #prefix < utils.get_option(self.config.prefix_min_len, context, prefix) then
         -- TODO: add log here
         callback()
         return
