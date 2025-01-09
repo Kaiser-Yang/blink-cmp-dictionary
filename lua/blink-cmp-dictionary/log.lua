@@ -5,7 +5,7 @@ local M = {}
 local config = {}
 local utils = require('blink-cmp-dictionary.utils')
 
---- @param opts table
+--- @param opts blink-cmp-dictionary.LogOptions
 function M.setup(opts)
     config = vim.tbl_extend('force', config, opts)
 end
