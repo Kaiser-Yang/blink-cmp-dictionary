@@ -1,8 +1,5 @@
 --- @module 'blink.cmp'
 
---- @class blink-cmp-dictionary.DictionarySource : blink.cmp.Source
---- @field get_completions? fun(self: blink.cmp.Source, context: blink.cmp.Context, callback: fun(response: blink.cmp.CompletionResponse | nil)):  nil
-
 local default = require('blink-cmp-dictionary.default')
 local utils = require('blink-cmp-dictionary.utils')
 local log = require('blink-cmp-dictionary.log')
