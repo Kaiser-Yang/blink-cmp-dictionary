@@ -22,9 +22,17 @@ function M.truthy(value)
     elseif type(value) == 'nil' then
         return false
     else
-        -- TODO: add log here
         return true
     end
+end
+
+--- Transform arguments to string, and concatenate them with a space.
+function M.str(...)
+    local args = { ... }
+    for i, v in ipairs(args) do
+        args[i] = vim.inspect(v)
+    end
+    return table.concat(args, ' ')
 end
 
 return M

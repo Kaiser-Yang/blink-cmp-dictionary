@@ -16,12 +16,14 @@
 
 local default = require('blink-cmp-dictionary.default')
 local utils = require('blink-cmp-dictionary.utils')
+local log = require('blink-cmp-dictionary.log')
 
 local DictionarySource = {}
 DictionarySource.__index = DictionarySource
 
 --- @param opts blink-cmp-dictionary.Options
 function DictionarySource.new(opts)
+    log.setup({ title = 'blink-cmp-dictionary' })
     local self = setmetatable({}, DictionarySource)
     self.config = vim.tbl_deep_extend("force", default, opts or {})
     return self
@@ -31,8 +33,11 @@ end
 --- @param context blink.cmp.Context
 function DictionarySource:get_completions(context, callback)
     local prefix = utils.get_option(self.config.get_prefix, context)
-    if #prefix < utils.get_option(self.config.prefix_min_len, context, prefix) then
-        -- TODO: add log here
+    local prefix_min_len = utils.get_option(self.config.prefix_min_len, context, prefix)
+    if #prefix < prefix_min_len then
+        log.debug('prefix is too short:', prefix,
+            '\n',
+            'required min length:', prefix_min_len)
         callback()
         return
     end
@@ -40,18 +45,26 @@ function DictionarySource:get_completions(context, callback)
         return arg:gsub('${prefix}', prefix)
     end, utils.get_option(self.config.get_command, context, prefix))
     if not utils.truthy(search_cmd) then
-        -- TODO: add log here
+        log.warn('get empty command from config.get_command')
         callback()
         return
     end
+    log.trace('search command:', search_cmd)
     local match_list = {}
     vim.system(search_cmd, nil, function(result)
-        if not utils.truthy(result.code) then
-            -- TODO: add log here
+        if result.code ~= 0 and utils.truthy(result.stderr) then
+            log.error('search command failed:', search_cmd,
+                '\n',
+                'with error code:', result.code,
+                '\n',
+                'stderr:' .. result.stderr)
+            return
         end
         if utils.truthy(result.stdout) then
             local separator = utils.get_option(self.config.output_separator, context, prefix)
             match_list = vim.split(result.stdout, separator)
+        else
+            log.trace('search command return empty result')
         end
     end):wait()
     local items = {}
@@ -75,18 +88,27 @@ function DictionarySource:resolve(item, callback)
             return arg:gsub('${word}', item.label)
         end, utils.get_option(self.config.documentation.get_command, item))
         if not utils.truthy(doc_cmd) then
-            -- TODO: add log here
+            log.warn('get empty command from config.documentation.get_command')
             callback(item)
             return
         end
+        log.trace('documentation command:', doc_cmd)
         vim.system(doc_cmd, nil, function(result)
-            if result.code ~= 0 then
-                -- TODO: add log here
+            if result.code ~= 0 and utils.truthy(result.stderr) then
+                log.error('documentation command failed:', doc_cmd,
+                    '\n',
+                    'with error code:', result.code,
+                    '\n',
+                    utils.truthy(result.stderr) and 'stderr: ' .. result.stderr or '')
             end
             if utils.truthy(result.stdout) then
                 item.documentation = result.stdout
+            else
+                log.debug('documentation command return empty result')
             end
         end):wait()
+    else
+        log.debug('documentation is disabled')
     end
     callback(item)
 end
