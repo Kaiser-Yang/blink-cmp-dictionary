@@ -133,24 +133,24 @@ Many of the options can be a function, you can check the very beginning of
 
 ## Performance
 
-The source are asynchronous by default, so it should not block the completion UI.
+`blink-cmp-dictionary` is asynchronous by default, so it should not block other operations.
 But there are something you should note:
 
-* Make sure the `min_keyword_length` is at least 2, if your dictionary files are very large,
+* Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
 a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
 can handle this quickly, but there will be too many results return to `blink.cmp`, which
 will make `blink.cmp` take a long time to fuzzy find the results.
 
 ## Q&A
 
-### Why use `fzf` as default? `blink.cmp` already supports fuzzy finding.
+### Why use `fzf` as default? `blink.cmp` already supports fuzzy finding
 
-In `blink-cmp-dictionary` we use `get_prefix` to determine which part to search, if we do not use
-`fzf`, for example we use `rg`, and we set `min_keyword_length=3`, after input 'dic',
+In `blink-cmp-dictionary` we use `get_prefix` to determine which part to search. If we do not use
+`fzf`, for example we use `rg`, and we set `min_keyword_length=3`. After inputting 'dic',
 `blink.cmp` will get all the words that start with 'dic', then `blink.cmp` will fuzzy find on
 words starting with 'dic'. The process makes it impossible to complete 'dictionary'
 when inputing 'dit'. But if we use `fzf`, `fzf` will return 'dictionary' when inputting `dit`
-('dit' is a sub-sequence of 'dictionary').
+('dit' is a sub-sequence of 'dictionary'). So the fuzzy finding feature are fully supported.
 
 ## Acknowledgment
 
