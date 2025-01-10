@@ -31,11 +31,13 @@ function DictionarySource:get_completions(context, callback)
     local items = {}
     local cancel_fun = function() end
     local transformed_callback = function()
-        callback({
-            is_incomplete_forward = false,
-            is_incomplete_backward = false,
-            items = vim.tbl_values(items)
-        })
+        vim.schedule(function()
+            callback({
+                is_incomplete_forward = false,
+                is_incomplete_backward = false,
+                items = vim.tbl_values(items)
+            })
+        end)
     end
     -- NOTE:
     -- In blink.cmp, the min_keyword_length dose not mean when to get the completions
@@ -94,7 +96,7 @@ function DictionarySource:get_completions(context, callback)
         cancel_fun = function() job:shutdown(0, nil) end
     end
     if async then
-        vim.schedule(function() job:start() end)
+        job:start()
     else
         job:sync()
     end
