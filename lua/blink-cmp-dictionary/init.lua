@@ -9,7 +9,8 @@ local Job = require('plenary.job')
 local DictionarySource = {}
 --- @type blink-cmp-dictionary.Options
 local dictionary_source_config
-
+--- @type blink.cmp.SourceProviderConfig
+local source_provider_config
 local function create_job_from_documentation_command(documentation_command)
     return Job:new({
         command = utils.get_option(documentation_command.get_command),
@@ -18,10 +19,11 @@ local function create_job_from_documentation_command(documentation_command)
 end
 
 --- @param opts blink-cmp-dictionary.Options
-function DictionarySource.new(opts)
+function DictionarySource.new(opts, config)
     log.setup({ title = 'blink-cmp-dictionary' })
     local self = setmetatable({}, { __index = DictionarySource })
     dictionary_source_config = vim.tbl_deep_extend("force", default, opts or {})
+    source_provider_config = config
     return self
 end
 
@@ -29,15 +31,23 @@ function DictionarySource:get_completions(context, callback)
     local items = {}
     local cancel_fun = function() end
     local transformed_callback = function()
-        vim.schedule(function()
-            callback({
-                is_incomplete_forward = false,
-                is_incomplete_backward = false,
-                items = vim.tbl_values(items)
-            })
-        end)
+        callback({
+            is_incomplete_forward = false,
+            is_incomplete_backward = false,
+            items = vim.tbl_values(items)
+        })
     end
+    -- NOTE:
+    -- In blink.cmp, the min_keyword_length dose not mean when to get the completions
+    -- it means when to show the completions, so we check here to avoid too many
+    -- completions items passed to the callback
     local prefix = utils.get_option(dictionary_source_config.get_prefix, context)
+    if #prefix == 0 or source_provider_config.min_keyword_length and
+        #prefix < source_provider_config.min_keyword_length then
+        callback()
+        return cancel_fun
+    end
+    local async = utils.get_option(dictionary_source_config.async)
     local cmd = utils.get_option(dictionary_source_config.get_command)
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix)
     local cat_writer = nil
@@ -80,9 +90,11 @@ function DictionarySource:get_completions(context, callback)
         writer = cat_writer,
     })
     job:after(transformed_callback)
-    if utils.get_option(dictionary_source_config.async) then
+    if async then
         cancel_fun = function() job:shutdown(0, nil) end
-        job:start()
+    end
+    if async then
+        vim.schedule(function() job:start() end)
     else
         job:sync()
     end
