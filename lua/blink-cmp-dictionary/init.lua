@@ -64,7 +64,7 @@ function DictionarySource:get_completions(context, callback)
             end
             local output = table.concat(j:result(), '\n')
             if utils.truthy(output) then
-                local match_list = utils.get_option(dictionary_source_config.seperate_output, output)
+                local match_list = utils.get_option(dictionary_source_config.separate_output, output)
                 vim.iter(match_list):each(function(match)
                     items[match] = {
                         label = match.label,

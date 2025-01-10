@@ -40,7 +40,7 @@ default = {
             '--no-sort'
         }
     end,
-    seperate_output = function(output)
+    separate_output = function(output)
         local items = {}
         for line in output:gmatch("[^\r\n]+") do
             table.insert(items, {

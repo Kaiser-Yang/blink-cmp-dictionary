@@ -14,4 +14,4 @@
 --- @field dictionary_directories? string[]|fun(): string[]
 --- @field get_command? string|fun(): string
 --- @field get_command_args? fun(prefix: string): string[]
---- @field seperate_output? fun(output: string): blink-cmp-dictionary.DictionaryCompletionItem[]
+--- @field separate_output? fun(output: string): blink-cmp-dictionary.DictionaryCompletionItem[]
