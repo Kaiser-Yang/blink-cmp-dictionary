@@ -26,15 +26,18 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
             'Kaiser-Yang/blink-cmp-dictionary',
             dependencies = { 'nvim-lua/plenary.nvim' }
         }
-        -- ... other dependencies
+        -- ... Other dependencies
     },
     opts = {
         sources = {
-            -- add 'dictionary' to the list
+            -- Add 'dictionary' to the list
             default = { 'dictionary', 'lsp', 'path', 'luasnip', 'buffer' },
             dictionary = {
                 module = 'blink-cmp-dictionary',
                 name = 'Dict',
+                -- Make sure this is at least 2.
+                -- 3 is recommended
+                min_keyword_length = 3,
             }
         }
     }
@@ -127,6 +130,27 @@ opts = {
 
 Many of the options can be a function, you can check the very beginning of
 [types.lua](./lua/blink-cmp-dictionary/types.lua) to get an idea of how to use.
+
+## Performance
+
+The source are asynchronous by default, so it should not block the completion UI.
+But there are something you should note:
+
+* Make sure the `min_keyword_length` is at least 2, if your dictionary files are very large,
+a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
+can handle this quickly, but there will be too many results return to `blink.cmp`, which
+will make `blink.cmp` take a long time to fuzzy find the results.
+
+## Q&A
+
+### Why use `fzf` as default? `blink.cmp` already supports fuzzy finding.
+
+In `blink-cmp-dictionary` we use `get_prefix` to determine which part to search, if we do not use
+`fzf`, for example we use `rg`, and we set `min_keyword_length=3`, after input 'dic',
+`blink.cmp` will get all the words that start with 'dic', then `blink.cmp` will fuzzy find on
+words starting with 'dic'. The process makes it impossible to complete 'dictionary'
+when inputing 'dit'. But if we use `fzf`, `fzf` will return 'dictionary' when inputting `dit`
+('dit' is a sub-sequence of 'dictionary').
 
 ## Acknowledgment
 
