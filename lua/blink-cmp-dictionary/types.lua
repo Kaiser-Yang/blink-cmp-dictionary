@@ -1,10 +1,17 @@
---- @class (exact) blink-cmp-dictionary.DocumentationOptions
---- @field enable boolean|fun(item: blink.cmp.CompletionItem): boolean
---- @field get_command? string[]|fun(item: blink.cmp.CompletionItem): string[]
+--- @class (exact) blink-cmp-dictionary.DocumentationCommand
+--- @field get_command? string|fun(): string
+--- @field get_command_args? string[]|fun(): string[]
+--- @field resolve_documentation? fun(output: string): string
+
+--- @class (exact) blink-cmp-dictionary.DictionaryCompletionItem
+--- @field label string
+--- @field insert_text string
+--- @field documentation? string|blink-cmp-dictionary.DocumentationCommand
 
 --- @class (exact) blink-cmp-dictionary.Options
+--- @field async? boolean|fun(): boolean
 --- @field get_prefix? string|fun(context: blink.cmp.Context): string
---- @field prefix_min_len? number|fun(context: blink.cmp.Context, prefix: string): number
---- @field get_command? string[]|fun(context: blink.cmp.Context, prefix: string): string[]
---- @field output_separator? string|fun(context: blink.cmp.Context, prefix: string): string
---- @field documentation? blink-cmp-dictionary.DocumentationOptions
+--- @field dictionary_directories? string[]|fun(): string[]
+--- @field get_command? string|fun(): string
+--- @field get_command_args? fun(prefix: string): string[]
+--- @field seperate_output? fun(output: string): blink-cmp-dictionary.DictionaryCompletionItem[]
