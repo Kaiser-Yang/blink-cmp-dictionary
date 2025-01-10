@@ -1,94 +1,115 @@
 --- @module 'blink.cmp'
 
---- @class (exact) blink-cmp-dictionary.DocumentationOptions
---- @field enable boolean|fun(item: blink.cmp.CompletionItem): boolean
---- @field get_command? string[]|fun(item: blink.cmp.CompletionItem): string[]
-
---- @class (exact) blink-cmp-dictionary.Options
---- @field get_prefix? string|fun(context: blink.cmp.Context): string
---- @field prefix_min_len? number|fun(context: blink.cmp.Context, prefix: string): number
---- @field get_command? string[]|fun(context: blink.cmp.Context, prefix: string): string[]
---- @field output_separator? string|fun(context: blink.cmp.Context, prefix: string): string
---- @field documentation? blink-cmp-dictionary.DocumentationOptions
-
---- @class blink-cmp-dictionary.DictionarySource : blink.cmp.Source
---- @field get_completions? fun(self: blink.cmp.Source, context: blink.cmp.Context, callback: fun(response: blink.cmp.CompletionResponse | nil)):  nil
-
 local default = require('blink-cmp-dictionary.default')
 local utils = require('blink-cmp-dictionary.utils')
+local log = require('blink-cmp-dictionary.log')
+local Job = require('plenary.job')
 
+--- @type blink.cmp.Source
 local DictionarySource = {}
-DictionarySource.__index = DictionarySource
+--- @type blink-cmp-dictionary.Options
+local dictionary_source_config
 
---- @param opts blink-cmp-dictionary.Options
-function DictionarySource.new(opts)
-    local self = setmetatable({}, DictionarySource)
-    self.config = vim.tbl_deep_extend("force", default, opts or {})
-    return self
-end
-
---- We always do this synchronously, let blink handle the async part
---- @param context blink.cmp.Context
-function DictionarySource:get_completions(context, callback)
-    local prefix = utils.get_option(self.config.get_prefix, context)
-    if #prefix < utils.get_option(self.config.prefix_min_len, context, prefix) then
-        -- TODO: add log here
-        callback()
-        return
-    end
-    local search_cmd = vim.tbl_map(function(arg)
-        return arg:gsub('${prefix}', prefix)
-    end, utils.get_option(self.config.get_command, context, prefix))
-    if not utils.truthy(search_cmd) then
-        -- TODO: add log here
-        callback()
-        return
-    end
-    local match_list = {}
-    vim.system(search_cmd, nil, function(result)
-        if not utils.truthy(result.code) then
-            -- TODO: add log here
-        end
-        if utils.truthy(result.stdout) then
-            local separator = utils.get_option(self.config.output_separator, context, prefix)
-            match_list = vim.split(result.stdout, separator)
-        end
-    end):wait()
-    local items = {}
-    vim.iter(match_list):each(function(match)
-        items[match] = {
-            label = match,
-            kind = vim.lsp.protocol.CompletionItemKind.Text,
-            insertText = match,
-        }
-    end)
-    callback({
-        is_incomplete_forward = false,
-        is_incomplete_backward = false,
-        items = vim.tbl_values(items)
+local function create_job_from_documentation_command(documentation_command)
+    return Job:new({
+        command = utils.get_option(documentation_command.get_command),
+        args = utils.get_option(documentation_command.get_command_args),
     })
 end
 
-function DictionarySource:resolve(item, callback)
-    if utils.truthy(utils.get_option(self.config.documentation.enable, item)) then
-        local doc_cmd = vim.tbl_map(function(arg)
-            return arg:gsub('${word}', item.label)
-        end, utils.get_option(self.config.documentation.get_command, item))
-        if not utils.truthy(doc_cmd) then
-            -- TODO: add log here
-            callback(item)
-            return
-        end
-        vim.system(doc_cmd, nil, function(result)
-            if result.code ~= 0 then
-                -- TODO: add log here
-            end
-            if utils.truthy(result.stdout) then
-                item.documentation = result.stdout
-            end
-        end):wait()
+--- @param opts blink-cmp-dictionary.Options
+function DictionarySource.new(opts)
+    log.setup({ title = 'blink-cmp-dictionary' })
+    local self = setmetatable({}, { __index = DictionarySource })
+    dictionary_source_config = vim.tbl_deep_extend("force", default, opts or {})
+    return self
+end
+
+function DictionarySource:get_completions(context, callback)
+    local items = {}
+    local cancel_fun = function() end
+    local transformed_callback = function()
+        callback({
+            is_incomplete_forward = false,
+            is_incomplete_backward = false,
+            items = vim.tbl_values(items)
+        })
     end
-    callback(item)
+    local prefix = utils.get_option(dictionary_source_config.get_prefix, context)
+    local cmd = utils.get_option(dictionary_source_config.get_command)
+    local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix)
+    local cat_writer = nil
+    local dictionary_directories = utils.get_option(dictionary_source_config.dictionary_directories)
+    local get_all_text_files = function()
+        local files = {}
+        for _, dir in ipairs(dictionary_directories) do
+            for _, file in ipairs(vim.fn.globpath(dir, '**/*.txt', true, true)) do
+                table.insert(files, file)
+            end
+        end
+        return files
+    end
+    if utils.truthy(dictionary_directories) then
+        cat_writer = Job:new({
+            command = 'cat',
+            args = get_all_text_files(),
+        })
+    end
+    local job = Job:new({
+        command = cmd,
+        args = cmd_args,
+        on_exit = function(j, code, _)
+            if code ~= 0 and not j:stderr_result() then
+                log.warn('failed to run cmd:', cmd, 'args:', cmd_args, 'stderr:', j:stderr_result())
+            end
+            local output = table.concat(j:result(), '\n')
+            if utils.truthy(output) then
+                local match_list = utils.get_option(dictionary_source_config.separate_output, output)
+                vim.iter(match_list):each(function(match)
+                    items[match] = {
+                        label = match.label,
+                        insertText = match.insert_text,
+                        kind = vim.lsp.protocol.CompletionItemKind.Text,
+                        documentation = match.documentation,
+                    }
+                end)
+            end
+        end,
+        writer = cat_writer,
+    })
+    job:after(transformed_callback)
+    if utils.get_option(dictionary_source_config.async) then
+        cancel_fun = function() job:shutdown(0, nil) end
+        job:start()
+    else
+        job:sync()
+    end
+    return cancel_fun
+end
+
+function DictionarySource:resolve(item, callback)
+    local transformed_callback = function()
+        callback(item)
+    end
+    if type(item.documentation) == 'string' then
+        transformed_callback()
+        return
+    end
+    local job = create_job_from_documentation_command(item.documentation)
+    job:after(function()
+        if utils.truthy(job:result()) then
+            ---@diagnostic disable-next-line: undefined-field
+            item.documentation = item.documentation.resolve_documentation(table.concat(job:result(), '\n'))
+        else
+            item.documentation = nil
+        end
+        transformed_callback()
+    end)
+    if utils.get_option(dictionary_source_config.async) then
+        job:start()
+    else
+        job:sync()
+    end
 end
 
 -- TODO: add highlight

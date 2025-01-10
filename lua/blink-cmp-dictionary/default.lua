@@ -25,17 +25,41 @@ local function match_prefix(prefix)
 end
 
 --- @type blink-cmp-dictionary.Options
-local default = {
-    --- @param context blink.cmp.Context
-    --- @return string
+local default
+default = {
+    async = true,
     get_prefix = function(context)
         return match_prefix(context.line:sub(1, context.cursor[2]))
     end,
-    prefix_min_len = 3,
-    -- output will be separated by vim.split(result.stdout, output_separator)
-    output_separator = '\n',
-    documentation = {
-        enable = false,
-    }
+    dictionary_directories = { vim.fn.expand('~/.config/nvim/dict/') },
+    get_command = 'fzf',
+    get_command_args = function(prefix)
+        return {
+            '--filter=' .. prefix,
+            '--sync',
+            '--no-sort'
+        }
+    end,
+    separate_output = function(output)
+        local items = {}
+        for line in output:gmatch("[^\r\n]+") do
+            table.insert(items, {
+                label = line,
+                insert_text = line,
+                documentation = {
+                    get_command = 'wn',
+                    get_command_args = {
+                        line,
+                        '-over'
+                    },
+                    ---@diagnostic disable-next-line: redefined-local
+                    resolve_documentation = function(output)
+                        return output
+                    end
+                }
+            })
+        end
+        return items
+    end
 }
 return default
