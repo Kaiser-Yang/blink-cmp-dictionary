@@ -29,11 +29,13 @@ function DictionarySource:get_completions(context, callback)
     local items = {}
     local cancel_fun = function() end
     local transformed_callback = function()
-        callback({
-            is_incomplete_forward = false,
-            is_incomplete_backward = false,
-            items = vim.tbl_values(items)
-        })
+        vim.schedule(function()
+            callback({
+                is_incomplete_forward = false,
+                is_incomplete_backward = false,
+                items = vim.tbl_values(items)
+            })
+        end)
     end
     local prefix = utils.get_option(dictionary_source_config.get_prefix, context)
     local cmd = utils.get_option(dictionary_source_config.get_command)
@@ -89,9 +91,11 @@ end
 
 function DictionarySource:resolve(item, callback)
     local transformed_callback = function()
-        callback(item)
+        vim.schedule(function()
+            callback(item)
+        end)
     end
-    if type(item.documentation) == 'string' then
+    if type(item.documentation) == 'string' or type(item.documentation) == 'nil' then
         transformed_callback()
         return
     end
