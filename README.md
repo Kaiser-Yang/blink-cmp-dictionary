@@ -141,6 +141,16 @@ a larger value is recommended. This is mainly because `blink-cmp-dictionary` act
 can handle this quickly, but there will be too many results return to `blink.cmp`, which
 will make `blink.cmp` take a long time to fuzzy find the results.
 
+## Version Introduction
+
+The release versions are something like `major.minor.patch`. When one of these numbers is increased:
+
+* `patch`: bugs are fixed or docs are added. This will not break the compatibility.
+* `minor`: compatible features are added. This may cause some configurations `deprecated`, but
+not break the compatibility.
+* `major`: incompatible features are added. All the `deprecated` configurations will be removed.
+This will break the compatibility.
+
 ## Q&A
 
 ### Why use `fzf` as default? `blink.cmp` already supports fuzzy finding
