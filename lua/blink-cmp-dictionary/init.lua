@@ -53,20 +53,29 @@ function DictionarySource:get_completions(context, callback)
     local cmd = utils.get_option(dictionary_source_config.get_command)
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix)
     local cat_writer = nil
-    local dictionary_directories = utils.get_option(dictionary_source_config.dictionary_directories)
-    local get_all_text_files = function()
-        local files = {}
-        for _, dir in ipairs(dictionary_directories) do
-            for _, file in ipairs(vim.fn.globpath(dir, '**/*.txt', true, true)) do
-                table.insert(files, file)
+    local get_all_dictionary_files = function()
+        local res = {}
+        local dirs = utils.get_option(dictionary_source_config.dictionary_directories)
+        local files = utils.get_option(dictionary_source_config.dictionary_files)
+        if utils.truthy(dirs) then
+            for _, dir in ipairs(dirs) do
+                for _, file in ipairs(vim.fn.globpath(dir, '**/*.txt', true, true)) do
+                    table.insert(res, file)
+                end
             end
         end
-        return files
+        if utils.truthy(files) then
+            for _, file in ipairs(files) do
+                table.insert(res, file)
+            end
+        end
+        return res
     end
-    if utils.truthy(dictionary_directories) then
+    local files = get_all_dictionary_files()
+    if utils.truthy(files) then
         cat_writer = Job:new({
             command = 'cat',
-            args = get_all_text_files(),
+            args = files,
         })
     end
     local job = Job:new({

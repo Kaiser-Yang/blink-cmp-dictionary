@@ -28,10 +28,16 @@ end
 local default
 default = {
     async = true,
+    -- Return the word before the cursor
+    --- @param context blink.cmp.Context
     get_prefix = function(context)
         return match_prefix(context.line:sub(1, context.cursor[2]))
     end,
-    dictionary_directories = { vim.fn.expand('~/.config/nvim/dict/') },
+    -- Where is your dictionary files
+    dictionary_files = nil,
+    -- Where is your dictionary directories, all the .txt files in the directory will be loaded
+    dictionary_directories = nil,
+    -- The command to get the word list
     get_command = 'fzf',
     get_command_args = function(prefix)
         return {
@@ -40,12 +46,14 @@ default = {
             '--no-sort'
         }
     end,
+    -- How to parse the output
     separate_output = function(output)
         local items = {}
         for line in output:gmatch("[^\r\n]+") do
             table.insert(items, {
                 label = line,
                 insert_text = line,
+                -- If you want to disable the documentation feature, just set it to nil
                 documentation = {
                     get_command = 'wn',
                     get_command_args = {
