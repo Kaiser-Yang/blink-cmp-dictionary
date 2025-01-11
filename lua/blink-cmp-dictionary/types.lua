@@ -11,6 +11,7 @@
 --- @class (exact) blink-cmp-dictionary.Options
 --- @field async? boolean|fun(): boolean
 --- @field get_prefix? string|fun(context: blink.cmp.Context): string
+--- @field dictionary_files? string[]|fun(): string[]
 --- @field dictionary_directories? string[]|fun(): string[]
 --- @field get_command? string|fun(): string
 --- @field get_command_args? fun(prefix: string): string[]

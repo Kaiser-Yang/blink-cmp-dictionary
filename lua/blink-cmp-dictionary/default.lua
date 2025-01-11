@@ -31,7 +31,8 @@ default = {
     get_prefix = function(context)
         return match_prefix(context.line:sub(1, context.cursor[2]))
     end,
-    dictionary_directories = { vim.fn.expand('~/.config/nvim/dict/') },
+    dictionary_files = nil,
+    dictionary_directories = nil,
     get_command = 'fzf',
     get_command_args = function(prefix)
         return {
