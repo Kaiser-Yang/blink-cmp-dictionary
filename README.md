@@ -188,6 +188,7 @@ But there are something you should note:
 opts = {
     sources = {
         providers = {
+            dictionary = {
                 -- Add this and change the value to your own preference
                 max_items = 8,
             }
