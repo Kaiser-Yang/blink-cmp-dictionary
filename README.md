@@ -47,7 +47,7 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     -- 3 is recommended
                     min_keyword_length = 3,
                     opts = {
-                        dictionary_files = { vim.fn.expand('/usr/share/dict/words') },
+                        -- options for blink-cmp-dictionary
                     }
                 }
             },
