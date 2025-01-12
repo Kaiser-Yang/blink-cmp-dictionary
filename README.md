@@ -39,16 +39,18 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
         sources = {
             -- Add 'dictionary' to the list
             default = { 'dictionary', 'lsp', 'path', 'luasnip', 'buffer' },
-            dictionary = {
-                module = 'blink-cmp-dictionary',
-                name = 'Dict',
-                -- Make sure this is at least 2.
-                -- 3 is recommended
-                min_keyword_length = 3,
-                opts = {
-                    -- Your options here
+            providers = {
+                dictionary = {
+                    module = 'blink-cmp-dictionary',
+                    name = 'Dict',
+                    -- Make sure this is at least 2.
+                    -- 3 is recommended
+                    min_keyword_length = 3,
+                    opts = {
+                        dictionary_files = { vim.fn.expand('/usr/share/dict/words') },
+                    }
                 }
-            }
+            },
         }
     }
 }
@@ -176,10 +178,23 @@ end,
 `blink-cmp-dictionary` is asynchronous by default, so it should not block other operations.
 But there are something you should note:
 
-* Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
-a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
-can handle this quickly, but there will be too many results return to `blink.cmp`, which
-will make `blink.cmp` take a long time to fuzzy find the results.
+- Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
+  a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
+  can handle this quickly, but there will be too many results return to `blink.cmp`, which
+  will make `blink.cmp` take a long time to fuzzy find the results.
+- Optionally, you can limit the number of items shown in the completion menu.
+
+```lua
+opts = {
+    sources = {
+        providers = {
+                -- Add this and change the value to your own preference
+                max_items = 8,
+            }
+        },
+    }
+}
+```
 
 ## Version Introduction
 
