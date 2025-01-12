@@ -178,10 +178,23 @@ end,
 `blink-cmp-dictionary` is asynchronous by default, so it should not block other operations.
 But there are something you should note:
 
-* Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
-a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
-can handle this quickly, but there will be too many results return to `blink.cmp`, which
-will make `blink.cmp` take a long time to fuzzy find the results.
+- Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
+  a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
+  can handle this quickly, but there will be too many results return to `blink.cmp`, which
+  will make `blink.cmp` take a long time to fuzzy find the results.
+- Optionally, you can limit the number of items shown in the completion menu.
+
+```lua
+opts = {
+    sources = {
+        providers = {
+                -- Add this and change the value to your own preference
+                max_items = 8,
+            }
+        },
+    }
+}
+```
 
 ## Version Introduction
 
