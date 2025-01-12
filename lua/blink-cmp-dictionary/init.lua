@@ -81,7 +81,12 @@ function DictionarySource:get_completions(context, callback)
     local job = Job:new({
         command = cmd,
         args = cmd_args,
-        on_exit = function(j, code, _)
+        on_exit = function(j, code, signal)
+            if signal == 9 then
+                -- shutdown mannually
+                -- do not handle the result
+                return
+            end
             if code ~= 0 and not j:stderr_result() then
                 log.warn('failed to run cmd:', cmd, 'args:', cmd_args, 'stderr:', j:stderr_result())
             end
@@ -102,7 +107,7 @@ function DictionarySource:get_completions(context, callback)
     })
     job:after(transformed_callback)
     if async then
-        cancel_fun = function() job:shutdown(0, nil) end
+        cancel_fun = function() job:shutdown(0, 9) end
     end
     if async then
         job:start()
