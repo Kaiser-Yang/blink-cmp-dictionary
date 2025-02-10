@@ -12,6 +12,11 @@ Definitions of words are also supported (use `wn` by default):
 
 ![blink-cmp-dictionary documents a word](./images/demo-doc.png)
 
+> [!NOTE]
+> `wn` is the abbreviation of `WordNet`, which is a lexical database of the English language.
+> If you don't know how to install `wn`, you may google the keyword
+> `how to install WordNet on ...`.
+
 ## Requirements
 
 For the default configuration, you must have `fzf` to search in the dictionary file. And `wn` must
@@ -57,6 +62,9 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
 ```
 
 ## Quick Start
+
+> [!NOTE]
+> If you don't have a dictionary file, see [english-words](https://github.com/dwyl/english-words).
 
 By default, your dictionary files must be like this content (every line is a word):
 
