@@ -12,6 +12,7 @@ local dictionary_source_config
 --- @type blink.cmp.SourceProviderConfig
 local source_provider_config
 local function create_job_from_documentation_command(documentation_command)
+    ---@diagnostic disable-next-line: missing-fields
     return Job:new({
         command = utils.get_option(documentation_command.get_command),
         args = utils.get_option(documentation_command.get_command_args),
@@ -24,6 +25,14 @@ function DictionarySource.new(opts, config)
     local self = setmetatable({}, { __index = DictionarySource })
     dictionary_source_config = vim.tbl_deep_extend("force", default, opts or {})
     source_provider_config = config
+    local completion_item_kind = require('blink.cmp.types').CompletionItemKind
+    local blink_kind_icons = require('blink.cmp.config').appearance.kind_icons
+    for kind_name, icon in pairs(dictionary_source_config.kind_icons) do
+        completion_item_kind[#completion_item_kind + 1] = kind_name
+        completion_item_kind[kind_name] = #completion_item_kind
+        blink_kind_icons[kind_name] = icon
+        vim.api.nvim_set_hl(0, 'BlinkCmpKind' .. kind_name, { link = 'BlinkCmpKind', default = true })
+    end
     return self
 end
 
@@ -73,11 +82,13 @@ function DictionarySource:get_completions(context, callback)
     end
     local files = get_all_dictionary_files()
     if utils.truthy(files) then
+        ---@diagnostic disable-next-line: missing-fields
         cat_writer = Job:new({
             command = 'cat',
             args = files,
         })
     end
+    ---@diagnostic disable-next-line: missing-fields
     local job = Job:new({
         command = cmd,
         args = cmd_args,
@@ -94,10 +105,11 @@ function DictionarySource:get_completions(context, callback)
             if utils.truthy(output) then
                 local match_list = utils.get_option(dictionary_source_config.separate_output, output)
                 vim.iter(match_list):each(function(match)
+                    match.kind_name = dictionary_source_config.get_kind_name(match)
                     items[match] = {
                         label = match.label,
                         insertText = match.insert_text,
-                        kind = vim.lsp.protocol.CompletionItemKind.Text,
+                        kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
                         documentation = match.documentation,
                     }
                 end)
@@ -144,10 +156,4 @@ function DictionarySource:resolve(item, callback)
     end
 end
 
--- TODO: add highlight
--- vim.api.nvim_set_hl(0, 'BlinkCmpDictionary', { link = 'Search', default = true })
--- local highlight_ns_id = 0
--- pcall(function()
---     highlight_ns_id = require('blink.cmp.config').appearance.highlight_ns
--- end)
 return DictionarySource

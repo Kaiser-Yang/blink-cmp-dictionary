@@ -46,6 +46,9 @@ default = {
             '--no-sort'
         }
     end,
+    kind_icons = {
+        Dict = '󰘝',
+    },
     -- How to parse the output
     separate_output = function(output)
         local items = {}
@@ -68,6 +71,7 @@ default = {
             })
         end
         return items
-    end
+    end,
+    get_kind_name = function(_) return 'Dict' end,
 }
 return default

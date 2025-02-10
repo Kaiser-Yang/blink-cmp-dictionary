@@ -22,7 +22,7 @@ Definitions of words are also supported (use `wn` by default):
 For the default configuration, you must have `fzf` to search in the dictionary file. And `wn` must
 be installed to get the definitions of words. `cat` for concatenating the dictionary files.
 
-If you have no `cat` in your system, see [How to custom the command](#how-to-custom-the-command).
+If you have no `cat` in your system, see [How to customize the command](#how-to-customize-the-command).
 
 ## Installation
 
@@ -90,7 +90,7 @@ dictionary_directories = nil,
 > All the dictionary files in `dictionary_files` and `dictionary_directories` will be
 > concatenated by `cat` command. Make sure the files are different, otherwise there will be
 > duplicate words in the completion list. If your dictionary files are not separated by lines,
-> see [How to custom completion items](#how-to-custom-completion-items)
+> see [How to customize completion items](#how-to-customize-completion-items)
 
 ## Default Configuration
 
@@ -107,7 +107,7 @@ words starting with 'dic'. The process makes it impossible to complete 'dictiona
 when inputing 'dit'. But if we use `fzf`, `fzf` will return 'dictionary' when inputting `dit`
 ('dit' is a sub-sequence of 'dictionary'). So the fuzzy finding feature are fully supported.
 
-### How to custom completion items
+### How to customize completion items
 
 By default, `blink-cmp-dictionary` treat every line in the dictionary files as a completion item.
 You can update this by use `separate_output` in the configuration:
@@ -137,7 +137,7 @@ separate_output = function(output)
 end
 ```
 
-### How to custom the command
+### How to customize the command
 
 By default, `blink-cmp-dictionary` will use `fzf` to read from the output of `cat`. If you do not
 have `cat` in your system, you may have other commands to output the content of files, just create
@@ -168,7 +168,8 @@ get_command_args = function(prefix)
 end
 ```
 
-If you just want to custom the arguments for `fzf` , for example, those below will ignore the case:
+If you just want to customize the arguments for `fzf` , for example,
+those below will ignore the case:
 
 ```lua
 get_command_args = function(prefix)
@@ -179,6 +180,14 @@ get_command_args = function(prefix)
         '-i' -- -i to ignore case, +i to respect case, with no this line is smart case
     }
 end,
+```
+
+### How to customize the highlight
+
+Customize the `BlinkCmpKindDict` to customize the highlight for kind icon, here is an example:
+
+```lua
+vim.api.nvim_set_hl(0, 'BlinkCmpKindDict', { default = false, fg = '#a6e3a1' })
 ```
 
 ## Performance

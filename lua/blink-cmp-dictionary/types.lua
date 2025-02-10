@@ -16,3 +16,4 @@
 --- @field get_command? string|fun(): string
 --- @field get_command_args? fun(prefix: string): string[]
 --- @field separate_output? fun(output: string): blink-cmp-dictionary.DictionaryCompletionItem[]
+--- @field get_kind_name? fun(item: blink-cmp-dictionary.DictionaryCompletionItem): string
