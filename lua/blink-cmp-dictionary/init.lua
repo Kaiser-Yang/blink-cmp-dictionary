@@ -3,9 +3,11 @@
 local default = require('blink-cmp-dictionary.default')
 local utils = require('blink-cmp-dictionary.utils')
 local log = require('blink-cmp-dictionary.log')
+log.setup({ title = 'blink-cmp-dictionary' })
 local Job = require('plenary.job')
 
 --- @type blink.cmp.Source
+--- @diagnostic disable-next-line: missing-fields
 local DictionarySource = {}
 --- @type blink-cmp-dictionary.Options
 local dictionary_source_config
@@ -21,17 +23,21 @@ end
 
 --- @param opts blink-cmp-dictionary.Options
 function DictionarySource.new(opts, config)
-    log.setup({ title = 'blink-cmp-dictionary' })
     local self = setmetatable({}, { __index = DictionarySource })
     dictionary_source_config = vim.tbl_deep_extend("force", default, opts or {})
     source_provider_config = config
+
     local completion_item_kind = require('blink.cmp.types').CompletionItemKind
     local blink_kind_icons = require('blink.cmp.config').appearance.kind_icons
     for kind_name, icon in pairs(dictionary_source_config.kind_icons) do
+        if completion_item_kind[kind_name] then
+            goto continue
+        end
         completion_item_kind[#completion_item_kind + 1] = kind_name
         completion_item_kind[kind_name] = #completion_item_kind
         blink_kind_icons[kind_name] = icon
         vim.api.nvim_set_hl(0, 'BlinkCmpKind' .. kind_name, { link = 'BlinkCmpKind', default = true })
+        ::continue::
     end
     return self
 end
@@ -53,14 +59,14 @@ function DictionarySource:get_completions(context, callback)
     -- it means when to show the completions, so we check here to avoid too many
     -- completions items passed to the callback
     local prefix = utils.get_option(dictionary_source_config.get_prefix, context)
-    if #prefix == 0 or source_provider_config.min_keyword_length and
-        #prefix < source_provider_config.min_keyword_length then
+    local min_keyword_length = utils.get_option(source_provider_config.min_keyword_length, context)
+    if #prefix == 0 or #prefix < min_keyword_length then
         callback()
         return cancel_fun
     end
     local async = utils.get_option(dictionary_source_config.async)
     local cmd = utils.get_option(dictionary_source_config.get_command)
-    local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix)
+    local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix, cmd)
     local cat_writer = nil
     local get_all_dictionary_files = function()
         local res = {}

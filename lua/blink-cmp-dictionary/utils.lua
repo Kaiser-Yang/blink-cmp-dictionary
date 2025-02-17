@@ -35,4 +35,8 @@ function M.str(...)
     return table.concat(args, ' ')
 end
 
+function M.command_found(command)
+    return vim.fn.executable(command) == 1
+end
+
 return M

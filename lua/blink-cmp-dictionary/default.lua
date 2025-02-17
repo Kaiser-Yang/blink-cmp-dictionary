@@ -1,5 +1,6 @@
 local log = require('blink-cmp-dictionary.log')
 log.setup({ title = 'blink-cmp-dictionary' })
+local utils = require('blink-cmp-dictionary.utils')
 local word_pattern
 do
     -- Only support utf-8
@@ -26,6 +27,31 @@ local function match_prefix(prefix)
     return match_res and match_res[#match_res] or ''
 end
 
+local function default_get_command()
+    return utils.command_found('fzf') and 'fzf' or 'rg'
+end
+
+local function default_get_command_args(prefix, command)
+    if command == 'fzf' then
+        return {
+            '--filter=' .. prefix,
+            '--sync',
+            '--no-sort',
+            '-i',
+        }
+    else
+        return {
+            '--color=never',
+            '--no-line-number',
+            '--no-messages',
+            '--no-filename',
+            '--ignore-case',
+            '--',
+            prefix,
+        }
+    end
+end
+
 local function default_on_error(return_value, standard_error)
 
     vim.schedule(function()
@@ -39,11 +65,9 @@ local function default_on_error(return_value, standard_error)
 end
 
 --- @type blink-cmp-dictionary.Options
-local default
-default = {
+return {
     async = true,
     -- Return the word before the cursor
-    --- @param context blink.cmp.Context
     get_prefix = function(context)
         return match_prefix(context.line:sub(1, context.cursor[2]))
     end,
@@ -52,14 +76,8 @@ default = {
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
     -- The command to get the word list
-    get_command = 'fzf',
-    get_command_args = function(prefix)
-        return {
-            '--filter=' .. prefix,
-            '--sync',
-            '--no-sort'
-        }
-    end,
+    get_command = default_get_command,
+    get_command_args = default_get_command_args,
     kind_icons = {
         Dict = '󰘝',
     },
@@ -89,4 +107,3 @@ default = {
     get_kind_name = function(_) return 'Dict' end,
     on_error = default_on_error,
 }
-return default
