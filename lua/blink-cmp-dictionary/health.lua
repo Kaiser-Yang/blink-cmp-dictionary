@@ -21,6 +21,7 @@ function M.check()
     if not check_command_executable('fzf', '"fzf" is not installed, will use "rg" instead') then
         check_command_executable('rg')
     end
+    check_command_executable('wn')
 end
 
 return M
