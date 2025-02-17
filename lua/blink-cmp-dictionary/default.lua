@@ -28,7 +28,8 @@ local function match_prefix(prefix)
 end
 
 local function default_get_command()
-    return utils.command_found('fzf') and 'fzf' or 'rg'
+    return utils.command_found('fzf') and 'fzf' or
+        utils.command_found('rg') and 'rg' or ''
 end
 
 local function default_get_command_args(prefix, command)
@@ -90,7 +91,9 @@ return {
                 insert_text = line,
                 -- If you want to disable the documentation feature, just set it to nil
                 documentation = {
-                    get_command = 'wn',
+                    get_command = function()
+                        return utils.command_found('wn') or ''
+                    end,
                     get_command_args = {
                         line,
                         '-over'

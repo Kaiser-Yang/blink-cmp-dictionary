@@ -46,13 +46,11 @@ function DictionarySource:get_completions(context, callback)
     local items = {}
     local cancel_fun = function() end
     local transformed_callback = function()
-        vim.schedule(function()
-            callback({
-                is_incomplete_forward = false,
-                is_incomplete_backward = false,
-                items = vim.tbl_values(items)
-            })
-        end)
+        callback({
+            is_incomplete_forward = false,
+            is_incomplete_backward = false,
+            items = vim.tbl_values(items)
+        })
     end
     -- NOTE:
     -- In blink.cmp, the min_keyword_length dose not mean when to get the completions
@@ -66,6 +64,10 @@ function DictionarySource:get_completions(context, callback)
     end
     local async = utils.get_option(dictionary_source_config.async)
     local cmd = utils.get_option(dictionary_source_config.get_command)
+    if not utils.truthy(cmd) then
+        transformed_callback()
+        return cancel_fun
+    end
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix, cmd)
     local cat_writer = nil
     local get_all_dictionary_files = function()
@@ -125,7 +127,7 @@ function DictionarySource:get_completions(context, callback)
         end,
         writer = cat_writer,
     })
-    job:after(transformed_callback)
+    job:after(vim.schedule_wrap(transformed_callback))
     if async then
         cancel_fun = function() job:shutdown(0, 9) end
     end
@@ -139,11 +141,14 @@ end
 
 function DictionarySource:resolve(item, callback)
     local transformed_callback = function()
-        vim.schedule(function()
-            callback(item)
-        end)
+        callback(item)
     end
     if type(item.documentation) == 'string' or type(item.documentation) == 'nil' then
+        transformed_callback()
+        return
+    end
+    ---@diagnostic disable-next-line: undefined-field
+    if not utils.truthy(utils.get_option(item.documentation.get_command)) then
         transformed_callback()
         return
     end
@@ -155,7 +160,7 @@ function DictionarySource:resolve(item, callback)
         else
             item.documentation = nil
         end
-        transformed_callback()
+        vim.schedule(transformed_callback)
     end)
     if utils.get_option(dictionary_source_config.async) then
         job:start()
