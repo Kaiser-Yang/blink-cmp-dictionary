@@ -36,7 +36,7 @@ function DictionarySource.new(opts, config)
         completion_item_kind[#completion_item_kind + 1] = kind_name
         completion_item_kind[kind_name] = #completion_item_kind
         blink_kind_icons[kind_name] = icon
-        vim.api.nvim_set_hl(0, 'BlinkCmpKind' .. kind_name, { link = 'BlinkCmpKind', default = true })
+        vim.api.nvim_set_hl(0, 'BlinkCmpKind' .. kind_name, { default = true, fg = '#a6e3a1' })
         ::continue::
     end
     return self
