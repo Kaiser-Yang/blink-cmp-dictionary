@@ -133,24 +133,46 @@ separate_output = function(output)
     local items = {}
     -- You may need to change the pattern to match your dictionary files
     for line in output:gmatch("[^\r\n]+") do
-        table.insert(items, {
-            label = line,
-            insert_text = line,
-            -- If you want to disable the documentation feature, just set it to nil
-            documentation = {
-                get_command = 'wn',
-                get_command_args = {
-                    line,
-                    '-over'
-                },
-                resolve_documentation = function(output)
-                    return output
-                end
-            }
-        })
+        local items = {}
+        for line in output:gmatch("[^\r\n]+") do
+            table.insert(items, line)
+        end
+        return items
     end
     return items
 end
+```
+
+After calling `separate_output`, `blink-cmp-dictionary` will call `get_label`, `get_insert_text`,
+`get_documentation`, and `get_kind` for each item in the list to assemble the completion items.
+Those below are the default:
+
+```lua
+get_label = function(item)
+    return item
+end,
+get_insert_text = function(item)
+    return item
+end,
+get_kind_name = function(_)
+    return 'Dict'
+end,
+get_documentation = function(item)
+    -- use return nil to disable the documentation
+    -- return nil
+    return {
+        get_command = function()
+            return utils.command_found('wn') and 'wn' or ''
+        end,
+        get_command_args = function()
+            return { item, '-over' }
+        end,
+        resolve_documentation = function(output)
+            return output
+        end,
+        on_error = default_on_error,
+    }
+end,
 ```
 
 ### How to customize the command

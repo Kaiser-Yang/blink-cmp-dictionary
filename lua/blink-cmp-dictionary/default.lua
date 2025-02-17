@@ -62,17 +62,55 @@ local function default_on_error(return_value, standard_error)
                 '\n',
                 'stderr:', standard_error)
         end)
+        return true
     end
-    return true
+    return false
+end
+
+local function default_separate_output(output)
+    local items = {}
+    for line in output:gmatch("[^\r\n]+") do
+        table.insert(items, line)
+    end
+    return items
+end
+
+local function default_get_label(item)
+    return item
+end
+
+local function default_get_insert_text(item)
+    return item
+end
+
+local function default_get_kind_name(_)
+    return 'Dict'
+end
+
+local function default_get_documentation(item)
+    return {
+        get_command = function()
+            return utils.command_found('wn') and 'wn' or ''
+        end,
+        get_command_args = function()
+            return { item, '-over' }
+        end,
+        resolve_documentation = function(output)
+            return output
+        end,
+        on_error = default_on_error,
+    }
+end
+
+local function default_get_prefix(context)
+    return match_prefix(context.line:sub(1, context.cursor[2]))
 end
 
 --- @type blink-cmp-dictionary.Options
 return {
     async = true,
     -- Return the word before the cursor
-    get_prefix = function(context)
-        return match_prefix(context.line:sub(1, context.cursor[2]))
-    end,
+    get_prefix = default_get_prefix,
     -- Where is your dictionary files
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
@@ -84,30 +122,10 @@ return {
         Dict = '󰘝',
     },
     -- How to parse the output
-    separate_output = function(output)
-        local items = {}
-        for line in output:gmatch("[^\r\n]+") do
-            table.insert(items, {
-                label = line,
-                insert_text = line,
-                -- If you want to disable the documentation feature, just set it to nil
-                documentation = {
-                    get_command = function()
-                        return utils.command_found('wn') and 'wn' or ''
-                    end,
-                    get_command_args = {
-                        line,
-                        '-over'
-                    },
-                    ---@diagnostic disable-next-line: redefined-local
-                    resolve_documentation = function(output)
-                        return output
-                    end
-                }
-            })
-        end
-        return items
-    end,
-    get_kind_name = function(_) return 'Dict' end,
+    separate_output = default_separate_output,
+    get_label = default_get_label,
+    get_insert_text = default_get_insert_text,
+    get_kind_name = default_get_kind_name,
+    get_documentation = default_get_documentation,
     on_error = default_on_error,
 }

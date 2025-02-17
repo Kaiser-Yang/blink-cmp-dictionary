@@ -1,7 +1,8 @@
 --- @class (exact) blink-cmp-dictionary.DocumentationCommand
---- @field get_command? string|fun(): string
---- @field get_command_args? string[]|fun(): string[]
---- @field resolve_documentation? fun(output: string): string
+--- @field get_command string|fun(): string
+--- @field get_command_args string[]|fun(): string[]
+--- @field resolve_documentation fun(output: string): string
+--- @field on_error fun(return_value: number, standard_error: string): boolean
 
 --- @class (exact) blink-cmp-dictionary.DictionaryCompletionItem
 --- @field label string
@@ -15,6 +16,9 @@
 --- @field dictionary_directories? string[]|fun(): string[]
 --- @field get_command? string|fun(): string
 --- @field get_command_args? fun(prefix: string, coomand: string): string[]
---- @field separate_output? fun(output: string): blink-cmp-dictionary.DictionaryCompletionItem[]
---- @field get_kind_name? fun(item: blink-cmp-dictionary.DictionaryCompletionItem): string
+--- @field separate_output? fun(output: string): any[]
+--- @field get_label? fun(item: any): string
+--- @field get_kind_name? fun(item: any): string
+--- @field get_insert_text? fun(item: any): string
+--- @field get_documentation? fun(item: any): string|blink-cmp-dictionary.DocumentationCommand
 --- @field on_error? fun(return_value: number, standard_error: string): boolean

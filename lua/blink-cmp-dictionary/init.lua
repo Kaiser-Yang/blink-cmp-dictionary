@@ -42,6 +42,23 @@ function DictionarySource.new(opts, config)
     return self
 end
 
+--- @param feature blink-cmp-dictionary.Options
+--- @param result string[]
+--- @return blink-cmp-dictionary.DictionaryCompletionItem[]
+local function assemble_completion_items_from_output(feature, result)
+    local items = {}
+    for i, v in ipairs(feature.separate_output(table.concat(result, '\n'))) do
+        items[i] = {
+            label = feature.get_label(v),
+            kind_name = feature.get_kind_name(v),
+            insert_text = feature.get_insert_text(v),
+            documentation = feature.get_documentation(v),
+        }
+    end
+    -- feature.configure_score_offset(items)
+    return items
+end
+
 function DictionarySource:get_completions(context, callback)
     local items = {}
     local cancel_fun = function() end
@@ -113,9 +130,10 @@ function DictionarySource:get_completions(context, callback)
             end
             local output = table.concat(j:result(), '\n')
             if utils.truthy(output) then
-                local match_list = utils.get_option(dictionary_source_config.separate_output, output)
+                local match_list = assemble_completion_items_from_output(
+                    dictionary_source_config,
+                    j:result())
                 vim.iter(match_list):each(function(match)
-                    match.kind_name = dictionary_source_config.get_kind_name(match)
                     items[match] = {
                         label = match.label,
                         insertText = match.insert_text,
@@ -154,7 +172,13 @@ function DictionarySource:resolve(item, callback)
         return
     end
     local job = create_job_from_documentation_command(item.documentation)
-    job:after(function()
+    job:after(function(j, code, _)
+        if code ~= 0 or utils.truthy(j:stderr_result()) then
+            ---@diagnostic disable-next-line: undefined-field
+            if item.documentation.on_error(code, table.concat(j:stderr_result(), '\n')) then
+                return
+            end
+        end
         if utils.truthy(job:result()) then
             ---@diagnostic disable-next-line: undefined-field
             item.documentation = item.documentation.resolve_documentation(table.concat(job:result(), '\n'))
