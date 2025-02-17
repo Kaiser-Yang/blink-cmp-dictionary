@@ -54,13 +54,15 @@ local function default_get_command_args(prefix, command)
 end
 
 local function default_on_error(return_value, standard_error)
-    vim.schedule(function()
-        log.error('get_completions failed',
-            '\n',
-            'with error code:', return_value,
-            '\n',
-            'stderr:', standard_error)
-    end)
+    if utils.truthy(standard_error) then
+        vim.schedule(function()
+            log.error('get_completions failed',
+                '\n',
+                'with error code:', return_value,
+                '\n',
+                'stderr:', standard_error)
+        end)
+    end
     return true
 end
 
