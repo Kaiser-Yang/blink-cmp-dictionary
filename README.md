@@ -19,10 +19,12 @@ Definitions of words are also supported (use `wn` by default):
 
 ## Requirements
 
-For the default configuration, you must have `fzf` to search in the dictionary file. And `wn` must
-be installed to get the definitions of words. `cat` for concatenating the dictionary files.
+For the default configuration, you must have `fzf` (or `rg`) to search in the dictionary file.
+And `wn` must be installed to get the definitions of words. `cat` for concatenating the dictionary
+files. You can use `checkhealth blink-cmp-dictionary` to check if the requirements are met.
 
-If you have no `cat` in your system, see [How to customize the command](#how-to-customize-the-command).
+If you have no `cat` in your system,
+see [How to customize the command](#how-to-customize-the-command).
 
 ## Installation
 
@@ -98,13 +100,27 @@ See [default.lua](./lua/blink-cmp-dictionary/default.lua).
 
 ## Q&A
 
+### How to use different dictionaries for different filetypes?
+
+You just need use a function to determine the dictionary files for different file types,
+for example:
+
+```lua
+dictionary_files = function()
+    if vim.bo.filetype == 'markdown' then
+        return { vim.fn.expand('~/.config/nvim/dictionary/markdown.dict') }
+    end
+    return { vim.fn.expand('~/.config/nvim/dictionary/words.dict') }
+end,
+```
+
 ### Why use `fzf` as default? `blink.cmp` already supports fuzzy finding
 
 In `blink-cmp-dictionary` we use `get_prefix` to determine which part to search. If we do not use
 `fzf`, for example we use `rg`, and we set `min_keyword_length=3`. After inputting 'dic',
 `blink.cmp` will get all the words that start with 'dic', then `blink.cmp` will fuzzy find on
 words starting with 'dic'. The process makes it impossible to complete 'dictionary'
-when inputing 'dit'. But if we use `fzf`, `fzf` will return 'dictionary' when inputting `dit`
+when inputting 'dit'. But if we use `fzf`, `fzf` will return 'dictionary' when inputting `dit`
 ('dit' is a sub-sequence of 'dictionary'). So the fuzzy finding feature are fully supported.
 
 ### How to customize completion items
@@ -150,7 +166,7 @@ You may configure a new command which supports reading from files directly, for 
 dictionary_files = nil,
 dictionary_directories = nil,
 get_command = 'rg',
-get_command_args = function(prefix)
+get_command_args = function(prefix, _)
     local dictionary_file1 = 'path/to/your/dictionary/file1'
     local dictionary_file2 = 'path/to/your/dictionary/file2'
     return {
@@ -172,7 +188,7 @@ If you just want to customize the arguments for `fzf` , for example,
 those below will ignore the case:
 
 ```lua
-get_command_args = function(prefix)
+get_command_args = function(prefix, _)
     return {
         '--filter=' .. prefix,
         '--sync',
