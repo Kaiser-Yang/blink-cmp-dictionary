@@ -17,3 +17,4 @@
 --- @field get_command_args? fun(prefix: string): string[]
 --- @field separate_output? fun(output: string): blink-cmp-dictionary.DictionaryCompletionItem[]
 --- @field get_kind_name? fun(item: blink-cmp-dictionary.DictionaryCompletionItem): string
+--- @field on_error? fun(return_value: number, standard_error: string): boolean

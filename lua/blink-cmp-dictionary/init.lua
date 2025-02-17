@@ -98,8 +98,10 @@ function DictionarySource:get_completions(context, callback)
                 -- do not handle the result
                 return
             end
-            if code ~= 0 and not j:stderr_result() then
-                log.warn('failed to run cmd:', cmd, 'args:', cmd_args, 'stderr:', j:stderr_result())
+            if code ~= 0 or utils.truthy(j:stderr_result()) then
+                if dictionary_source_config.on_error(code, table.concat(j:stderr_result(), '\n')) then
+                    return
+                end
             end
             local output = table.concat(j:result(), '\n')
             if utils.truthy(output) then

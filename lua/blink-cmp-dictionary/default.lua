@@ -1,3 +1,5 @@
+local log = require('blink-cmp-dictionary.log')
+log.setup({ title = 'blink-cmp-dictionary' })
 local word_pattern
 do
     -- Only support utf-8
@@ -22,6 +24,18 @@ end
 local function match_prefix(prefix)
     local match_res = vim.lpeg.match(word_pattern, prefix)
     return match_res and match_res[#match_res] or ''
+end
+
+local function default_on_error(return_value, standard_error)
+
+    vim.schedule(function()
+        log.error('get_completions failed',
+            '\n',
+            'with error code:', return_value,
+            '\n',
+            'stderr:', standard_error)
+    end)
+    return true
 end
 
 --- @type blink-cmp-dictionary.Options
@@ -73,5 +87,6 @@ default = {
         return items
     end,
     get_kind_name = function(_) return 'Dict' end,
+    on_error = default_on_error,
 }
 return default
