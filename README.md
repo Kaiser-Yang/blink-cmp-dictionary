@@ -235,20 +235,20 @@ Use this below `enabled` function to check if the cursor is in a comment block:
 ```lua
 dictionary = {
     -- ...
-    enabled = function()
-        local buf = vim.api.nvim_get_current_buf()
-        local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-        row = row - 1
-        local parser = vim.treesitter.get_parser(buf)
-        local tree = parser:parse()[1]
-        local root = tree:root()
-        local query = vim.treesitter.query.get(vim.bo.filetype, 'highlights')
-        if not query then
+    should_show_items = function()
+        if vim.api.nvim_get_mode().mode ~= 'i' then
             return false
         end
-        for id, node, _ in query:iter_captures(root, buf, 0, -1) do
-            local name = query.captures[id]
-            if name == 'comment' then
+        local node_under_cursor = vim.treesitter.get_node()
+        local parser = vim.treesitter.get_parser(nil, nil, { error = false })
+        local query = vim.treesitter.query.get(vim.bo.filetype, 'highlights')
+        if not parser or not node_under_cursor or not query then
+            return false
+        end
+        local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+        row = row - 1
+        for id, node, _ in query:iter_captures(node_under_cursor, 0, row, row + 1) do
+            if query.captures[id] == 'comment' then
                 local start_row, start_col, end_row, end_col = node:range()
                 if start_row <= row and row <= end_row then
                     if start_row == row and end_row == row then
