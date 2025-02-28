@@ -230,7 +230,7 @@ vim.api.nvim_set_hl(0, 'BlinkCmpKindDict', { default = false, fg = '#a6e3a1' })
 
 ### How to enable this plugin for comment blocks only?
 
-Use this below `enabled` function to check if the cursor is in a comment block:
+Use this below `should_show_items` function to check if the cursor is in a comment block:
 
 ```lua
 dictionary = {
