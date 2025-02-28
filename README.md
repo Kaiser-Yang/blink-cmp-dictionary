@@ -228,6 +228,52 @@ Customize the `BlinkCmpKindDict` to customize the highlight for kind icon, here 
 vim.api.nvim_set_hl(0, 'BlinkCmpKindDict', { default = false, fg = '#a6e3a1' })
 ```
 
+### How to enable this plugin for comment blocks only?
+
+Use this below `enabled` function to check if the cursor is in a comment block:
+
+```lua
+dictionary = {
+    -- ...
+    enabled = function()
+        local buf = vim.api.nvim_get_current_buf()
+        local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+        row = row - 1
+        local parser = vim.treesitter.get_parser(buf)
+        local tree = parser:parse()[1]
+        local root = tree:root()
+        local query = vim.treesitter.query.get(vim.bo.filetype, 'highlights')
+        if not query then
+            return false
+        end
+        for id, node, _ in query:iter_captures(root, buf, 0, -1) do
+            local name = query.captures[id]
+            if name == 'comment' then
+                local start_row, start_col, end_row, end_col = node:range()
+                if start_row <= row and row <= end_row then
+                    if start_row == row and end_row == row then
+                        if start_col <= col and col <= end_col then
+                            return true
+                        end
+                    elseif start_row == row then
+                        if start_col <= col then
+                            return true
+                        end
+                    elseif end_row == row then
+                        if col <= end_col then
+                            return true
+                        end
+                    else
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end,
+    -- ...
+```
+
 ## Performance
 
 `blink-cmp-dictionary` is asynchronous by default, so it should not block other operations.
