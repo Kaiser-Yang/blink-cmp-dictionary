@@ -39,4 +39,30 @@ function M.command_found(command)
     return vim.fn.executable(command) == 1
 end
 
+---@param x unknown
+---@return boolean
+local function Boolean(x)
+    return not not x
+end
+
+---@param str string
+---@return boolean
+function M.is_capital(str)
+    return Boolean(str:find("^%u"))
+end
+
+---@param str string
+---@return string
+function M.capitalize(str)
+    local u = str:gsub("^%l", string.upper)
+    return u
+end
+
+---@param str string
+---@return string
+function M.decapitalize(str)
+    local l = str:gsub("^%u", string.lower)
+    return l
+end
+
 return M

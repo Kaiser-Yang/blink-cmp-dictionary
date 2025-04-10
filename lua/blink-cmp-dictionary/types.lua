@@ -22,3 +22,4 @@
 --- @field get_insert_text? fun(item: any): string
 --- @field get_documentation? fun(item: any): string|blink-cmp-dictionary.DocumentationCommand
 --- @field on_error? fun(return_value: number, standard_error: string): boolean
+--- @field first_case_insensitive? boolean|fun(): boolean

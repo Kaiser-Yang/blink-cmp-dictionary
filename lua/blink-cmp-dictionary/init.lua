@@ -80,6 +80,7 @@ function DictionarySource:get_completions(context, callback)
         return cancel_fun
     end
     local async = utils.get_option(dictionary_source_config.async)
+    local first_case_insensitive = utils.get_option(dictionary_source_config.first_case_insensitive)
     local cmd = utils.get_option(dictionary_source_config.get_command)
     if not utils.truthy(cmd) then
         transformed_callback()
@@ -134,12 +135,25 @@ function DictionarySource:get_completions(context, callback)
                     dictionary_source_config,
                     j:result())
                 vim.iter(match_list):each(function(match)
-                    items[match] = {
-                        label = match.label,
-                        insertText = match.insert_text,
-                        kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
-                        documentation = match.documentation,
-                    }
+                    if not first_case_insensitive then
+                        items[match] = {
+                            label = match.label,
+                            insertText = match.insert_text,
+                            kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
+                            documentation = match.documentation,
+                        }
+                    else
+                        items[match] = {
+                            label = utils.is_capital(prefix)
+                                and utils.capitalize(match.label)
+                                or utils.decapitalize(match.label),
+                            insertText = utils.is_capital(prefix)
+                                and utils.capitalize(match.insert_text)
+                                or utils.decapitalize(match.insert_text),
+                            kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
+                            documentation = match.documentation,
+                        }
+                    end
                 end)
             end
         end,

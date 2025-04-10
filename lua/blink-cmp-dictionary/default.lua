@@ -128,4 +128,6 @@ return {
     get_kind_name = default_get_kind_name,
     get_documentation = default_get_documentation,
     on_error = default_on_error,
+    -- Respect the case of the prefix
+    first_case_insensitive = false,
 }
