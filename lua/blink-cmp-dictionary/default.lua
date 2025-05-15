@@ -106,6 +106,16 @@ local function default_get_prefix(context)
     return match_prefix(context.line:sub(1, context.cursor[2]))
 end
 
+local function default_capitalize_first(context, match)
+    local prefix = default_get_prefix(context)
+    return string.match(prefix, '^%u') ~= nil and match.label:match('^%l*$') ~= nil
+end
+
+local function default_capitalize_whole_word(context, match)
+    local prefix = default_get_prefix(context)
+    return string.match(prefix, '^%u%u') ~= nil and match.label:match('^%l*$') ~= nil
+end
+
 --- @type blink-cmp-dictionary.Options
 return {
     async = true,
@@ -115,6 +125,14 @@ return {
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
+    -- Whether or not to capitalize the first letter of the word
+    capitalize_first = default_capitalize_first,
+    -- Whether or not to capitalize the whole word
+    capitalize_whole_word = default_capitalize_whole_word,
+    -- Whether or not to decapitalize the first letter of the word
+    decapitalize_first = false,
+    -- Whether or not to decapitalize the whole word
+    decapitalize_whole_word = false,
     -- The command to get the word list
     get_command = default_get_command,
     get_command_args = default_get_command_args,
@@ -128,6 +146,4 @@ return {
     get_kind_name = default_get_kind_name,
     get_documentation = default_get_documentation,
     on_error = default_on_error,
-    -- Respect the case of the prefix
-    first_case_insensitive = false,
 }

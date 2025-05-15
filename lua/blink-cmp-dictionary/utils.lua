@@ -39,30 +39,26 @@ function M.command_found(command)
     return vim.fn.executable(command) == 1
 end
 
----@param x unknown
----@return boolean
-local function Boolean(x)
-    return not not x
-end
-
----@param str string
----@return boolean
-function M.is_capital(str)
-    return Boolean(str:find("^%u"))
-end
-
----@param str string
+---@param s string # The string to be capitalized
+---@param capitalize_whole_word boolean # If true, capitalize the whole word, otherwise only the first letter
 ---@return string
-function M.capitalize(str)
-    local u = str:gsub("^%l", string.upper)
-    return u
+function M.capitalize(s, capitalize_whole_word)
+    local res = s:gsub('^%l', string.upper)
+    if capitalize_whole_word then
+        res = s:gsub('%l', string.upper)
+    end
+    return res
 end
 
----@param str string
+---@param s string # The string to be decapitalized
+---@param decapitalize_whole_word boolean # If true, decapitalize the whole word, otherwise only the first letter
 ---@return string
-function M.decapitalize(str)
-    local l = str:gsub("^%u", string.lower)
-    return l
+function M.decapitalize(s, decapitalize_whole_word)
+    local res = s:gsub("^%u", string.lower)
+    if decapitalize_whole_word then
+        res = s:gsub("%u", string.lower)
+    end
+    return res
 end
 
 return M

@@ -100,6 +100,41 @@ See [default.lua](./lua/blink-cmp-dictionary/default.lua).
 
 ## Q&A
 
+### What is the actual behavior of capitalization?
+
+As for `v2.0.0`, there are four new options:
+
+* `capitalize_first`:
+  - `true`: Capitalize the first letter of the completion item.
+  - `false`: Do not capitalize the first letter of the completion item.
+* `capitalize_whole_word`:
+  - `true`: Capitalize the whole word.
+  - `false`: Do not capitalize the whole word.
+* `decapitalize_first`:
+  - `true`: Decapitalize the first letter of the completion item.
+  - `false`: Do not de-capitalize the first letter of the completion item.
+* `decapitalize_whole_word`:
+  - `true`: Decapitalize the whole word.
+  - `false`: Do not de-capitalize the whole word.
+
+The behavior of capitalization is determined by all the options. For example, if the values of them
+are `true`, `true`, `true`, `true`. The process will be: (use `word` as an example)
+
+* Capitalize the first letter of the completion item: `Word`
+* Capitalize the whole word: `WORD`
+* Decapitalize the first letter of the completion item: `wORD`
+* Decapitalize the whole word: `word`
+
+So the result will be `word`.
+
+By default, `capitalize_first` will be `true`, if the word of dictionary files is lowercase, and the
+first letter of match prefix is uppercase; `capitalize_whole_word` will be `true`, if the word of
+dictionary files is lowercase, and the first two letters of match prefix are uppercase;
+`decapitalize_first` and `decapitalize_whole_word` are always `false`. This means if there is
+`word` in your dictionary files, and you input `W`, the completion item will be `Word`. If you
+input `WO`, the completion item will be `WORD`. If you input `wo`, `wO`, `woR`, or `wOr`, the
+completion item will be `word`.
+
 ### How to use different dictionaries for different filetypes?
 
 You just need use a function to determine the dictionary files for different file types,
