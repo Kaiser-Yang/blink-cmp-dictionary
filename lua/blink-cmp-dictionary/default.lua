@@ -116,6 +116,11 @@ local function default_capitalize_whole_word(context, match)
     return string.match(prefix, '^%u%u') ~= nil and match.label:match('^%l*$') ~= nil
 end
 
+local function default_decapitalize_first(context, match)
+    local prefix = default_get_prefix(context)
+    return string.match(prefix, '^%l') ~= nil and match.label:match('^%u') ~= nil
+end
+
 --- @type blink-cmp-dictionary.Options
 return {
     async = true,
@@ -130,7 +135,7 @@ return {
     -- Whether or not to capitalize the whole word
     capitalize_whole_word = default_capitalize_whole_word,
     -- Whether or not to decapitalize the first letter of the word
-    decapitalize_first = false,
+    decapitalize_first = default_decapitalize_first,
     -- Whether or not to decapitalize the whole word
     decapitalize_whole_word = false,
     -- The command to get the word list
