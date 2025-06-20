@@ -37,7 +37,6 @@ local function default_get_command_args(prefix, command)
         return {
             '--filter=' .. prefix,
             '--sync',
-            '--no-sort',
             '-i',
         }
     else
@@ -47,6 +46,7 @@ local function default_get_command_args(prefix, command)
             '--no-messages',
             '--no-filename',
             '--ignore-case',
+            '--max-count=100',
             '--',
             prefix,
         }
@@ -71,6 +71,7 @@ local function default_separate_output(output)
     local items = {}
     for line in output:gmatch("[^\r\n]+") do
         table.insert(items, line)
+        if #items == 100 then break end
     end
     return items
 end
