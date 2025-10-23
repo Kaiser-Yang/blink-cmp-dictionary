@@ -73,11 +73,12 @@ function DictionarySource:get_completions(context, callback)
         })
     end
     -- NOTE:
-    -- In blink.cmp, the min_keyword_length dose not mean when to get the completions
-    -- it means when to show the completions, so we check here to avoid too many
-    -- completions items passed to the callback
+    -- `min_keyword_length` in blink.cmp is taken into account when completions
+    -- are displayed, not when they are fetched. The check here prevents excessive
+    -- completion items from being passed to the callback, as dictionary results
+    -- can be extensive.
     local prefix = utils.get_option(dictionary_source_config.get_prefix, context)
-    local min_keyword_length = utils.get_option(source_provider_config.min_keyword_length, context)
+    local min_keyword_length = utils.get_option(source_provider_config.min_keyword_length, context) or 0
     if #prefix == 0 or #prefix < min_keyword_length then
         callback()
         return cancel_fun
