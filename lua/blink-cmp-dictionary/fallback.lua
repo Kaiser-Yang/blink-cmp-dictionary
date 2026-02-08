@@ -94,12 +94,12 @@ function M.search(prefix, max_results)
     local count = 0
     
     -- Search across all cached files
-    for _, cache in pairs(file_caches) do
+    for _, file_cache in pairs(file_caches) do
         if count >= max_results then
             break
         end
         
-        for _, word in ipairs(cache.words) do
+        for _, word in ipairs(file_cache.words) do
             if count >= max_results then
                 break
             end
@@ -129,12 +129,10 @@ end
 --- @return { word_count: number, file_count: number }
 function M.get_stats()
     local total_words = 0
-    for _, cache in pairs(file_caches) do
-        total_words = total_words + #cache.words
-    end
-    
     local file_count = 0
-    for _ in pairs(file_caches) do
+    
+    for _, file_cache in pairs(file_caches) do
+        total_words = total_words + #file_cache.words
         file_count = file_count + 1
     end
     
