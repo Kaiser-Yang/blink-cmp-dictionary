@@ -161,10 +161,8 @@ function DictionarySource:get_completions(context, callback)
     if not utils.truthy(cmd) then
         local files = get_all_dictionary_files()
         
-        -- Load dictionaries into fallback cache if not already loaded
-        if not fallback.is_loaded() then
-            fallback.load_dictionaries(files)
-        end
+        -- Load/refresh dictionaries (uses file-based caching internally)
+        fallback.load_dictionaries(files)
         
         -- Perform synchronous search using fallback
         local results = fallback.search(prefix, 100)

@@ -4,45 +4,76 @@
 
 local M = {}
 
---- @class blink-cmp-dictionary.FallbackCache
---- @field words string[] # Cached dictionary words
---- @field loaded boolean # Whether the cache is loaded
+--- @class blink-cmp-dictionary.FileCache
+--- @field words string[] # Cached words from this file
+--- @field mtime number # Modification time of the file
 
---- @type blink-cmp-dictionary.FallbackCache
-local cache = {
-    words = {},
-    loaded = false,
-}
+--- @type table<string, blink-cmp-dictionary.FileCache>
+local file_caches = {}
 
---- Load dictionary files into memory
+--- Get file modification time
+--- @param filepath string
+--- @return number|nil
+local function get_file_mtime(filepath)
+    local stat = vim.loop.fs_stat(filepath)
+    return stat and stat.mtime.sec or nil
+end
+
+--- Load a single dictionary file into cache
+--- @param filepath string
+--- @return string[] # Words from this file
+local function load_file(filepath)
+    local words = {}
+    local f = io.open(filepath, 'r')
+    if f then
+        for line in f:lines() do
+            local word = line:match("^%s*(.-)%s*$") -- trim whitespace
+            if word and word ~= "" then
+                table.insert(words, word)
+            end
+        end
+        f:close()
+    end
+    return words
+end
+
+--- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
 --- @return boolean # Success status
 function M.load_dictionaries(files)
     if not files or #files == 0 then
-        cache.loaded = true
-        cache.words = {}
+        file_caches = {}
         return true
     end
     
-    local words = {}
-    local word_set = {} -- For deduplication
-    
+    -- Create a set of current files for quick lookup
+    local current_files = {}
     for _, file in ipairs(files) do
-        local f = io.open(file, 'r')
-        if f then
-            for line in f:lines() do
-                local word = line:match("^%s*(.-)%s*$") -- trim whitespace
-                if word and word ~= "" and not word_set[word] then
-                    table.insert(words, word)
-                    word_set[word] = true
-                end
-            end
-            f:close()
+        current_files[file] = true
+    end
+    
+    -- Remove cached files that are no longer in the list
+    for filepath, _ in pairs(file_caches) do
+        if not current_files[filepath] then
+            file_caches[filepath] = nil
         end
     end
     
-    cache.words = words
-    cache.loaded = true
+    -- Load or refresh files as needed
+    for _, filepath in ipairs(files) do
+        local mtime = get_file_mtime(filepath)
+        local cached = file_caches[filepath]
+        
+        -- Load file if not cached or if modified
+        if not cached or not mtime or cached.mtime ~= mtime then
+            local words = load_file(filepath)
+            file_caches[filepath] = {
+                words = words,
+                mtime = mtime or 0,
+            }
+        end
+    end
+    
     return true
 end
 
@@ -53,29 +84,36 @@ end
 function M.search(prefix, max_results)
     max_results = max_results or 100
     
-    if not cache.loaded then
-        return {}
-    end
-    
     if not prefix or prefix == "" then
         return {}
     end
     
     local results = {}
+    local result_set = {} -- For deduplication across files
     local lower_prefix = prefix:lower()
     local count = 0
     
-    -- Perform case-insensitive substring search
-    for _, word in ipairs(cache.words) do
+    -- Search across all cached files
+    for _, cache in pairs(file_caches) do
         if count >= max_results then
             break
         end
         
-        local lower_word = word:lower()
-        -- Check if prefix is a substring of word
-        if lower_word:find(lower_prefix, 1, true) then
-            table.insert(results, word)
-            count = count + 1
+        for _, word in ipairs(cache.words) do
+            if count >= max_results then
+                break
+            end
+            
+            -- Skip if already in results
+            if not result_set[word] then
+                local lower_word = word:lower()
+                -- Check if prefix is a substring of word
+                if lower_word:find(lower_prefix, 1, true) then
+                    table.insert(results, word)
+                    result_set[word] = true
+                    count = count + 1
+                end
+            end
         end
     end
     
@@ -84,22 +122,25 @@ end
 
 --- Clear the cache
 function M.clear_cache()
-    cache.words = {}
-    cache.loaded = false
-end
-
---- Check if cache is loaded
---- @return boolean
-function M.is_loaded()
-    return cache.loaded
+    file_caches = {}
 end
 
 --- Get cache statistics
---- @return { word_count: number, loaded: boolean }
+--- @return { word_count: number, file_count: number }
 function M.get_stats()
+    local total_words = 0
+    for _, cache in pairs(file_caches) do
+        total_words = total_words + #cache.words
+    end
+    
+    local file_count = 0
+    for _ in pairs(file_caches) do
+        file_count = file_count + 1
+    end
+    
     return {
-        word_count = #cache.words,
-        loaded = cache.loaded,
+        word_count = total_words,
+        file_count = file_count,
     }
 end
 
