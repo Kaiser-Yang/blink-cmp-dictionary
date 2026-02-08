@@ -48,6 +48,7 @@ local function default_get_command_args(prefix, command)
             '--no-filename',
             '--ignore-case',
             '--max-count=100',
+            '-F', --Fixed strings
             '--',
             prefix,
         }
@@ -56,6 +57,7 @@ local function default_get_command_args(prefix, command)
             '--color=never',
             '--ignore-case',
             '--max-count=100',
+            '-F', --Fixed strings
             '--',
             prefix,
         }
