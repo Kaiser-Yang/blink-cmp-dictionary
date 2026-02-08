@@ -18,8 +18,10 @@ end
 function M.check()
     health.start('blink-cmp-dictionary')
     check_command_executable('cat')
-    if not check_command_executable('fzf', '"fzf" is not installed, will use "rg" instead') then
-        check_command_executable('rg')
+    if not check_command_executable('fzf', '"fzf" is not installed, try to use "rg" instead') then
+        if not check_command_executable('rg', '"rg" is not installed, try to use "grep" instead') then
+            check_command_executable('grep')
+        end
     end
     check_command_executable('wn')
 end

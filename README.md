@@ -19,7 +19,7 @@ Definitions of words are also supported (use `wn` by default):
 
 ## Requirements
 
-For the default configuration, you must have `fzf` (or `rg`) to search in the dictionary file.
+For the default configuration, you must have `fzf` (or `rg` or `grep`) to search in the dictionary file.
 And `wn` must be installed to get the definitions of words. `cat` for concatenating the dictionary
 files. You can use `checkhealth blink-cmp-dictionary` to check if the requirements are met.
 
@@ -152,11 +152,14 @@ end,
 ### Why use `fzf` as default? `blink.cmp` already supports fuzzy finding
 
 In `blink-cmp-dictionary` we use `get_prefix` to determine which part to search. If we do not use
-`fzf`, for example we use `rg`, and we set `min_keyword_length=3`. After inputting 'dic',
+`fzf`, for example we use `rg` or `grep`, and we set `min_keyword_length=3`. After inputting 'dic',
 `blink.cmp` will get all the words that start with 'dic', then `blink.cmp` will fuzzy find on
 words starting with 'dic'. The process makes it impossible to complete 'dictionary'
 when inputting 'dit'. But if we use `fzf`, `fzf` will return 'dictionary' when inputting `dit`
 ('dit' is a sub-sequence of 'dictionary'). So the fuzzy finding feature are fully supported.
+
+Note that `grep` is provided as a last resort fallback when neither `fzf` nor `rg` are available,
+but it will not provide the same level of fuzzy matching as `fzf`.
 
 ### How to customize completion items
 
@@ -212,9 +215,10 @@ end,
 
 ### How to customize the command
 
-By default, `blink-cmp-dictionary` will use `fzf` to read from the output of `cat`. If you do not
-have `cat` in your system, you may have other commands to output the content of files, just create
-a symbolic link named `cat` to the command you use.
+By default, `blink-cmp-dictionary` will use `fzf` to read from the output of `cat`. If `fzf` is not 
+available, it will fall back to `rg`, and if `rg` is also not available, it will use `grep` as the 
+last resort. If you do not have `cat` in your system, you may have other commands to output the 
+content of files, just create a symbolic link named `cat` to the command you use.
 
 You may configure a new command which supports reading from files directly, for example, `rg`:
 
