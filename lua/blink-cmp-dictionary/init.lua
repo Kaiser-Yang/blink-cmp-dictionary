@@ -4,7 +4,13 @@ local default = require('blink-cmp-dictionary.default')
 local utils = require('blink-cmp-dictionary.utils')
 local log = require('blink-cmp-dictionary.log')
 log.setup({ title = 'blink-cmp-dictionary' })
-local Job = require('plenary.job')
+local fallback = require('blink-cmp-dictionary.fallback')
+
+-- Only load plenary.job if available (not needed for fallback mode)
+local has_plenary, Job = pcall(require, 'plenary.job')
+if not has_plenary then
+    Job = nil
+end
 
 --- @type blink.cmp.Source
 --- @diagnostic disable-next-line: missing-fields
@@ -84,11 +90,94 @@ function DictionarySource:get_completions(context, callback)
         return cancel_fun
     end
     local cmd = utils.get_option(dictionary_source_config.get_command)
+    
+    -- Handle fallback mode when cmd is empty string
     if not utils.truthy(cmd) then
+        local get_all_dictionary_files = function()
+            local res = {}
+            local dirs = utils.get_option(dictionary_source_config.dictionary_directories)
+            local files = utils.get_option(dictionary_source_config.dictionary_files)
+            if utils.truthy(dirs) then
+                for _, dir in ipairs(dirs) do
+                    for _, file in ipairs(vim.fn.globpath(dir, '**/*.txt', true, true)) do
+                        table.insert(res, file)
+                    end
+                end
+            end
+            if utils.truthy(files) then
+                for _, file in ipairs(files) do
+                    table.insert(res, file)
+                end
+            end
+            return res
+        end
+        
+        local files = get_all_dictionary_files()
+        
+        -- Load dictionaries into fallback cache if not already loaded
+        if not fallback.is_loaded() then
+            fallback.load_dictionaries(files)
+        end
+        
+        -- Perform synchronous search using fallback
+        local results = fallback.search(prefix, 100)
+        if utils.truthy(results) then
+            local match_list = assemble_completion_items_from_output(
+                dictionary_source_config,
+                results)
+            vim.iter(match_list):each(function(match)
+                items[match] = {
+                    label = match.label,
+                    insertText = match.insert_text,
+                    kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
+                    documentation = match.documentation,
+                }
+                if utils.get_option(
+                    dictionary_source_config.capitalize_first,
+                    context,
+                    match
+                ) then
+                    items[match].label = utils.capitalize(match.label, false)
+                    items[match].insertText = utils.capitalize(match.insert_text, false)
+                end
+                if utils.get_option(
+                    dictionary_source_config.capitalize_whole_word,
+                    context,
+                    match
+                ) then
+                    items[match].label = utils.capitalize(match.label, true)
+                    items[match].insertText = utils.capitalize(match.insert_text, true)
+                end
+                if utils.get_option(
+                    dictionary_source_config.decapitalize_first,
+                    context,
+                    match
+                ) then
+                    items[match].label = utils.decapitalize(match.label, false)
+                    items[match].insertText = utils.decapitalize(match.insert_text, false)
+                end
+                if utils.get_option(
+                    dictionary_source_config.decapitalize_whole_word,
+                    context,
+                    match
+                ) then
+                    items[match].label = utils.decapitalize(match.label, true)
+                    items[match].insertText = utils.decapitalize(match.insert_text, true)
+                end
+            end)
+        end
         transformed_callback()
         return cancel_fun
     end
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix, cmd)
+    
+    -- Check if plenary is available when not in fallback mode
+    if not Job then
+        log.error('plenary.nvim is required when using external commands. Please install it or set get_command to empty string to use fallback mode.')
+        callback()
+        return cancel_fun
+    end
+    
     local cat_writer = nil
     local get_all_dictionary_files = function()
         local res = {}
@@ -200,6 +289,15 @@ function DictionarySource:resolve(item, callback)
         transformed_callback()
         return
     end
+    
+    -- Check if plenary is available for documentation resolution
+    if not Job then
+        log.warn('plenary.nvim is not available, documentation resolution is disabled')
+        item.documentation = nil
+        transformed_callback()
+        return
+    end
+    
     local job = create_job_from_documentation_command(item.documentation)
     job:after(function(j, code, _)
         if code ~= 0 or utils.truthy(j:stderr_result()) then

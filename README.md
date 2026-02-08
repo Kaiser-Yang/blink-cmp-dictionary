@@ -19,18 +19,27 @@ Definitions of words are also supported (use `wn` by default):
 
 ## Requirements
 
-For the default configuration, you must have `fzf` (or `rg` or `grep`) to search in the dictionary file.
-And `wn` must be installed to get the definitions of words. `cat` for concatenating the dictionary
-files. You can use `checkhealth blink-cmp-dictionary` to check if the requirements are met.
+For the default configuration, you must have `cat` and at least one of `fzf`, `rg`, or `grep` to search in the dictionary file. `wn` is optional and provides definitions of words. You can use `checkhealth blink-cmp-dictionary` to check if the requirements are met.
 
-If you have no `cat` in your system,
-see [How to customize the command](#how-to-customize-the-command).
+### Fallback Mode
+
+If `cat` is not available, or if `cat` is available but **none** of `fzf`, `rg`, or `grep` are available, the plugin will automatically fall back to a pure Lua implementation. In fallback mode:
+
+* **No external dependencies** are required (including `plenary.nvim`)
+* **Synchronous filtering** is performed, which may cause performance issues with large dictionaries
+* **Substring search** is supported (similar to `grep -F`), not just prefix matching
+* Set `get_command = ''` (empty string) in configuration to force fallback mode
+
+> [!WARNING]
+> Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words). For better performance, install `cat` and at least one of `fzf`, `rg`, or `grep`.
 
 ## Installation
 
 Add the plugin to your packer managers, and make sure it is loaded before `blink.cmp`.
 
 ### `lazy.nvim`
+
+**With external commands (recommended):**
 
 ```lua
 {
@@ -54,6 +63,40 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     -- 3 is recommended
                     min_keyword_length = 3,
                     opts = {
+                        -- options for blink-cmp-dictionary
+                    }
+                }
+            },
+        }
+    }
+}
+```
+
+**Using fallback mode (no external dependencies):**
+
+```lua
+{
+    'saghen/blink.cmp',
+    dependencies = {
+        {
+            'Kaiser-Yang/blink-cmp-dictionary',
+            -- No plenary.nvim dependency needed in fallback mode
+        }
+        -- ... Other dependencies
+    },
+    opts = {
+        sources = {
+            -- Add 'dictionary' to the list
+            default = { 'dictionary', 'lsp', 'path', 'luasnip', 'buffer' },
+            providers = {
+                dictionary = {
+                    module = 'blink-cmp-dictionary',
+                    name = 'Dict',
+                    -- Use a higher min_keyword_length in fallback mode for better performance
+                    min_keyword_length = 4,
+                    opts = {
+                        -- Force fallback mode
+                        get_command = '',
                         -- options for blink-cmp-dictionary
                     }
                 }
@@ -215,11 +258,25 @@ end,
 
 ### How to customize the command
 
-By default, `blink-cmp-dictionary` will use `fzf` to read from the output of `cat`. If `fzf` is not 
-available, it will fall back to `rg`, and if `rg` is also not available, it will use `grep` as the 
-last resort. If you do not have `cat` in your system, you may have other commands to output the 
-content of files, just create a symbolic link named `cat` to the command you use.
+By default, `blink-cmp-dictionary` will use `cat` to concatenate dictionary files and pipe them to a search tool (`fzf`, `rg`, or `grep` in order of preference). 
 
+**Automatic Fallback:**
+If `cat` is not available, or if `cat` is available but none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
+- Does **not** require `plenary.nvim`
+- Performs **substring search** (similar to `grep -F`) synchronously
+- May have **performance issues** with large dictionaries
+
+**Manual Fallback:**
+You can force fallback mode by setting `get_command` to an empty string:
+
+```lua
+opts = {
+    get_command = '',
+    -- When using fallback, increase min_keyword_length for better performance
+}
+```
+
+**Custom Command:**
 You may configure a new command which supports reading from files directly, for example, `rg`:
 
 ```lua
@@ -334,13 +391,19 @@ opts = {
 
 ## Performance
 
-`blink-cmp-dictionary` always runs asynchronously, so it will not block other operations.
-But there are something you should note:
+**With External Commands:**
+When using external commands (`fzf`, `rg`, or `grep`), `blink-cmp-dictionary` runs asynchronously and will not block other operations.
 
+**With Fallback Mode:**
+When using fallback mode (no external commands), the plugin performs **synchronous** filtering, which may cause noticeable delays, especially with large dictionaries.
+
+**General Recommendations:**
 - Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
   a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
   can handle this quickly, but there will be too many results return to `blink.cmp`, which
   will make `blink.cmp` take a long time to fuzzy find the results.
+- **In fallback mode**, use a `min_keyword_length` of at least 3-4 to reduce the number of matches
+  and improve responsiveness.
 - Optionally, you can limit the number of items shown in the completion menu.
 
 ```lua
