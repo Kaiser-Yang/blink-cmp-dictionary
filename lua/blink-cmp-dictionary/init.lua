@@ -83,7 +83,6 @@ function DictionarySource:get_completions(context, callback)
         callback()
         return cancel_fun
     end
-    local async = utils.get_option(dictionary_source_config.async)
     local cmd = utils.get_option(dictionary_source_config.get_command)
     if not utils.truthy(cmd) then
         transformed_callback()
@@ -182,14 +181,8 @@ function DictionarySource:get_completions(context, callback)
         writer = cat_writer,
     })
     job:after(vim.schedule_wrap(transformed_callback))
-    if async then
-        cancel_fun = function() job:shutdown(0, 9) end
-    end
-    if async then
-        job:start()
-    else
-        job:sync()
-    end
+    cancel_fun = function() job:shutdown(0, 9) end
+    job:start()
     return cancel_fun
 end
 
@@ -223,11 +216,7 @@ function DictionarySource:resolve(item, callback)
         end
         vim.schedule(transformed_callback)
     end)
-    if utils.get_option(dictionary_source_config.async) then
-        job:start()
-    else
-        job:sync()
-    end
+    job:start()
 end
 
 return DictionarySource

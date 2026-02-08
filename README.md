@@ -334,7 +334,7 @@ opts = {
 
 ## Performance
 
-`blink-cmp-dictionary` is asynchronous by default, so it should not block other operations.
+`blink-cmp-dictionary` always runs asynchronously, so it will not block other operations.
 But there are something you should note:
 
 - Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
