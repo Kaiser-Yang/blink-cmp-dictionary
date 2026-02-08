@@ -29,7 +29,8 @@ end
 
 local function default_get_command()
     return utils.command_found('fzf') and 'fzf' or
-        utils.command_found('rg') and 'rg' or ''
+        utils.command_found('rg') and 'rg' or
+        utils.command_found('grep') and 'grep' or ''
 end
 
 local function default_get_command_args(prefix, command)
@@ -39,7 +40,7 @@ local function default_get_command_args(prefix, command)
             '--sync',
             '-i',
         }
-    else
+    elseif command == 'rg' then
         return {
             '--color=never',
             '--no-line-number',
@@ -50,6 +51,15 @@ local function default_get_command_args(prefix, command)
             '--',
             prefix,
         }
+    elseif command == 'grep' then
+        return {
+            '--ignore-case',
+            '--max-count=100',
+            '--',
+            prefix,
+        }
+    else
+        return {}
     end
 end
 
