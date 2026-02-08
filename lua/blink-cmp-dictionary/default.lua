@@ -53,6 +53,7 @@ local function default_get_command_args(prefix, command)
         }
     elseif command == 'grep' then
         return {
+            '--color=never',
             '--ignore-case',
             '--max-count=100',
             '--',
