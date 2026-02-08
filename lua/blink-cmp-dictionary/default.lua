@@ -130,7 +130,6 @@ end
 
 --- @type blink-cmp-dictionary.Options
 return {
-    async = true,
     -- Return the word before the cursor
     get_prefix = default_get_prefix,
     -- Where is your dictionary files
