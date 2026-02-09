@@ -93,7 +93,7 @@ end
 
 --- Search in trie by traversing the entire pattern
 --- @param pattern string
---- @return table<string, boolean> # Set of matching words
+--- @return string[] # Array of matching words
 local function trie_search_fuzzy(pattern)
     if pattern == "" then
         return {}
@@ -117,7 +117,7 @@ local function trie_search_fuzzy(pattern)
     for word, files in pairs(node.words) do
         -- Only include words that have at least one active file
         if next(files) then
-            results[word] = true
+            table.insert(results, word)
         end
     end
     
@@ -181,14 +181,7 @@ function M.search(prefix, max_results)
         return {}
     end
     
-    -- Get candidate words from trie and convert to array
-    local words = {}
-    for word, _ in pairs(trie_search_fuzzy(prefix)) do
-        table.insert(words, word)
-    end
-    
-    -- Use utils.get_top_matches to score and select top results
-    return utils.get_top_matches(words, prefix, max_results)
+    return utils.get_top_matches(trie_search_fuzzy(prefix), prefix, max_results)
 end
 
 --- Clear the cache
