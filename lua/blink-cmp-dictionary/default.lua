@@ -28,18 +28,13 @@ local function match_prefix(prefix)
 end
 
 local function default_get_command()
-    -- Check if cat is available
-    local has_cat = utils.command_found('cat')
-    
-    -- If cat is available, check for search tools
-    if has_cat then
-        if utils.command_found('fzf') then
-            return 'fzf'
-        elseif utils.command_found('rg') then
-            return 'rg'
-        elseif utils.command_found('grep') then
-            return 'grep'
-        end
+    -- Check for available search tools
+    if utils.command_found('fzf') then
+        return 'fzf'
+    elseif utils.command_found('rg') then
+        return 'rg'
+    elseif utils.command_found('grep') then
+        return 'grep'
     end
     
     -- Fallback to empty string (will use pure Lua implementation)

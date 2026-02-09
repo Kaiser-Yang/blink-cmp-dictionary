@@ -17,22 +17,19 @@ end
 
 function M.check()
     health.start('blink-cmp-dictionary')
-    local has_cat = check_command_executable('cat', '"cat" is not installed, will use fallback mode')
     local has_search_tool = false
     
-    if has_cat then
-        if not check_command_executable('fzf', '"fzf" is not installed, try to use "rg" instead') then
-            if not check_command_executable('rg', '"rg" is not installed, try to use "grep" instead') then
-                has_search_tool = check_command_executable('grep', '"grep" is not installed, will use fallback mode')
-            else
-                has_search_tool = true
-            end
+    if not check_command_executable('fzf', '"fzf" is not installed, try to use "rg" instead') then
+        if not check_command_executable('rg', '"rg" is not installed, try to use "grep" instead') then
+            has_search_tool = check_command_executable('grep', '"grep" is not installed, will use fallback mode')
         else
             has_search_tool = true
         end
+    else
+        has_search_tool = true
     end
     
-    if not has_cat or not has_search_tool then
+    if not has_search_tool then
         health.info('Fallback mode will be used: pure Lua substring search (synchronous, may have performance issues)')
     else
         health.info('External commands are available')
