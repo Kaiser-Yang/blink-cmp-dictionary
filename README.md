@@ -24,7 +24,7 @@ For the default configuration, you must have at least one of `fzf`, `rg`, or `gr
 ### Fallback Mode
 
 **Default Behavior:**
-By default (since v2.1.0), if `fzf` is **not found**, the plugin will **directly fall back** to a pure Lua implementation instead of trying `rg` or `grep`. This provides the best user experience with excellent performance.
+By default, if `fzf` is **not found**, the plugin will **directly fall back** to a pure Lua implementation instead of trying `rg` or `grep`. This provides the best user experience with excellent performance.
 
 **Disabling Fallback:**
 If you prefer to use `rg` or `grep` when `fzf` is not available, set `force_fallback = false` in your configuration:
@@ -269,7 +269,7 @@ end,
 
 By default, `blink-cmp-dictionary` will read dictionary files using native Neovim async file I/O and pipe them to a search tool. 
 
-**Default Behavior (since v2.1.0):**
+**Default Behavior:**
 - If `fzf` is found → Use `fzf` for fuzzy searching
 - If `fzf` is **not** found → **Directly fall back to pure Lua implementation**
 - This provides excellent performance without requiring external tools
@@ -414,7 +414,7 @@ opts = {
 
 ## Performance
 
-**Default Mode (since v2.1.0):**
+**Default Mode:**
 - If `fzf` is found: Uses `fzf` (asynchronous, no blocking)
 - If `fzf` is **not** found: Uses **fallback mode** (synchronous, but excellent performance)
 
