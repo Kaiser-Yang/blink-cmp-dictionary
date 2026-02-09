@@ -72,16 +72,16 @@ local function fuzzy_match_score(word, pattern)
     
     -- Calculate score based on match positions
     local score = 0
-    local last_pos = 0
+    local last_pos = nil
     
-    for _, pos in ipairs(match_positions) do
+    for i, pos in ipairs(match_positions) do
         -- Bonus for matches at the beginning
         if pos == 1 then
             score = score + 100
         end
         
-        -- Bonus for consecutive matches
-        if pos == last_pos + 1 then
+        -- Bonus for consecutive matches (skip first match)
+        if last_pos and pos == last_pos + 1 then
             score = score + 50
         end
         
@@ -92,7 +92,8 @@ local function fuzzy_match_score(word, pattern)
     end
     
     -- Bonus for shorter words (prefer exact or close matches)
-    score = score + (100 - #word_lower)
+    -- Cap at 0 to avoid negative bonuses for long words
+    score = score + math.max(0, 100 - #word_lower)
     
     return score
 end
