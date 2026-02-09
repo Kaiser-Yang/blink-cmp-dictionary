@@ -203,24 +203,18 @@ function M.load_dictionaries(files)
             for _, word in ipairs(word_list) do
                 trie_remove(word, filepath)
             end
+            -- Clean up the file entry to avoid memory leak
+            file_word_lists[filepath] = nil
         end
     end
     
-    -- Load or re-enable files as needed
+    -- Load new files (don't re-insert already loaded files)
     for _, filepath in ipairs(files) do
-        local cached_words = file_word_lists[filepath]
-        
-        -- Load file if not cached
-        if not cached_words then
+        if not file_word_lists[filepath] then
             local words = load_file(filepath)
             file_word_lists[filepath] = words
             -- Add words to trie
             for _, word in ipairs(words) do
-                trie_insert(word, filepath)
-            end
-        else
-            -- Re-add words if they were removed
-            for _, word in ipairs(cached_words) do
                 trie_insert(word, filepath)
             end
         end
