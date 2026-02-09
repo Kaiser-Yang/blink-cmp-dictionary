@@ -197,13 +197,13 @@ function DictionarySource:get_completions(context, callback)
         -- Pass separate_output function to parse dictionary files
         fallback.load_dictionaries(files, dictionary_source_config.separate_output, function(return_code, standard_error)
             -- Check for errors and call on_error if needed
-            if return_code ~= 0 and utils.truthy(standard_error) then
-                if dictionary_source_config.on_error(return_code, standard_error) then
+            if return_code ~= 0 then
+                if dictionary_source_config.on_error and dictionary_source_config.on_error(return_code, standard_error) then
                     -- on_error returned true, stop processing
                     transformed_callback()
                     return
                 end
-                -- on_error returned false, continue with available data
+                -- on_error returned false or not defined, continue with available data
             end
             
             -- Perform search using fallback
@@ -298,15 +298,15 @@ function DictionarySource:get_completions(context, callback)
             end
             
             -- Check for errors and call on_error if needed
-            if return_code ~= 0 and utils.truthy(standard_error) then
-                if dictionary_source_config.on_error(return_code, standard_error) then
+            if return_code ~= 0 then
+                if dictionary_source_config.on_error and dictionary_source_config.on_error(return_code, standard_error) then
                     -- on_error returned true, stop processing
                     vim.schedule(function()
                         transformed_callback()
                     end)
                     return
                 end
-                -- on_error returned false, continue with available content
+                -- on_error returned false or not defined, continue with available content
             end
             
             if not content or content == '' then
