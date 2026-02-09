@@ -41,12 +41,16 @@ function DictionarySource.new(opts, config)
     return self
 end
 
+--- Assemble completion items from raw command output
+--- Assemble completion items from already-separated words (fallback mode)
 --- @param feature blink-cmp-dictionary.Options
---- @param result string[]
+--- @param words string[] # Already separated words from fallback search
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
-local function assemble_completion_items_from_output(feature, result)
+local function assemble_completion_items_from_words(feature, words)
+    -- Words are already scored and limited by fallback.search
+    -- Just assemble completion items
     local items = {}
-    for i, v in ipairs(feature.separate_output(table.concat(result, '\n'))) do
+    for i, v in ipairs(words) do
         items[i] = {
             label = feature.get_label(v),
             kind_name = feature.get_kind_name(v),
@@ -56,6 +60,37 @@ local function assemble_completion_items_from_output(feature, result)
     end
     -- feature.configure_score_offset(items)
     return items
+end
+
+--- @param feature blink-cmp-dictionary.Options
+--- @param result string # Raw output from external command
+--- @param prefix string
+--- @param max_items number
+--- @param cmd string|nil # Command name (e.g., 'fzf') for optimization
+--- @return blink-cmp-dictionary.DictionaryCompletionItem[]
+local function assemble_completion_items_from_output(feature, result, prefix, max_items, cmd)
+    -- First, call separate_output to parse the output
+    local separated_items = feature.separate_output(result)
+    
+    -- Optimization: if we have fewer items than max_items, or fzf output is already sorted,
+    -- we don't need to do fuzzy scoring/selection
+    local top_items
+    if #separated_items <= max_items then
+        -- Not enough items to select, use all
+        top_items = separated_items
+    elseif cmd == 'fzf' then
+        -- fzf output is already sorted, just take first max_items
+        top_items = {}
+        for i = 1, max_items do
+            table.insert(top_items, separated_items[i])
+        end
+    else
+        -- Apply fuzzy scoring and limit to max_items
+        top_items = utils.get_top_matches(separated_items, prefix, max_items)
+    end
+    
+    -- Finally, assemble completion items using the shared function
+    return assemble_completion_items_from_words(feature, top_items)
 end
 
 --- Helper function to get all dictionary files
@@ -247,17 +282,29 @@ function DictionarySource:get_completions(context, callback)
     end
     local cmd = utils.get_option(dictionary_source_config.get_command)
     
-    -- Handle fallback mode when cmd is empty string
-    if not utils.truthy(cmd) then
+    -- Parse max_items once for both fallback and external command modes
+    -- Check type: if it's a function or nil, use default of 100
+    -- We cannot call function types as we don't have the proper context
+    local max_items = 100
+    if type(source_provider_config.max_items) == 'number' then
+        max_items = source_provider_config.max_items
+    end
+    
+    -- Handle fallback mode: either forced or when cmd is not available
+    local force_fallback = dictionary_source_config.force_fallback or false
+    if force_fallback or not utils.truthy(cmd) then
         local files = get_all_dictionary_files()
         
         -- Load/refresh dictionaries (uses file-based caching internally)
-        fallback.load_dictionaries(files)
+        -- Pass separate_output function to parse dictionary files
+        fallback.load_dictionaries(files, dictionary_source_config.separate_output)
         
         -- Perform synchronous search using fallback
-        local results = fallback.search(prefix, 100)
+        local results = fallback.search(prefix, max_items)
         if utils.truthy(results) then
-            local match_list = assemble_completion_items_from_output(
+            -- fallback.search already returns scored and limited words
+            -- No need to call separate_output again
+            local match_list = assemble_completion_items_from_words(
                 dictionary_source_config,
                 results)
             vim.iter(match_list):each(function(match)
@@ -303,14 +350,12 @@ function DictionarySource:get_completions(context, callback)
                 
                 local output = result.stdout or ''
                 if utils.truthy(output) then
-                    local lines = {}
-                    for line in output:gmatch("[^\r\n]+") do
-                        table.insert(lines, line)
-                    end
-                    
                     local match_list = assemble_completion_items_from_output(
                         dictionary_source_config,
-                        lines)
+                        output,
+                        prefix,
+                        max_items,
+                        cmd)  -- Pass cmd for fzf optimization
                     vim.iter(match_list):each(function(match)
                         process_completion_item(match, context, items)
                     end)

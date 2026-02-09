@@ -28,7 +28,7 @@ If **none** of `fzf`, `rg`, or `grep` are available, the plugin will automatical
 * **No external dependencies** are required
 * **Synchronous filtering** is performed, which may cause performance issues with large dictionaries
 * **Fuzzy matching** is supported (similar to `fzf`), with intelligent scoring based on match positions
-* Set `get_command = ''` (empty string) in configuration to force fallback mode
+* Set `force_fallback = true` in configuration to force fallback mode (recommended over `get_command = ''`)
 
 > [!WARNING]
 > Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words) **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands. For better performance, install at least one of `fzf`, `rg`, or `grep`.
@@ -56,11 +56,13 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                 dictionary = {
                     module = 'blink-cmp-dictionary',
                     name = 'Dict',
-                    -- Make sure this is at least 2.
-                    -- 3 is recommended
-                    min_keyword_length = 3,
+                    -- Can be set to 0 in most cases.
+                    -- If you experience performance issues, try setting it to 2.
+                    min_keyword_length = 0,
+                    -- options for blink-cmp-dictionary
                     opts = {
-                        -- options for blink-cmp-dictionary
+                        -- put your dictionary files here
+                        -- dictionary_files = {}
                     }
                 }
             },
@@ -86,10 +88,12 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                 dictionary = {
                     module = 'blink-cmp-dictionary',
                     name = 'Dict',
-                    min_keyword_length = 3,
-                    -- Force fallback mode
-                    get_command = '',
-                    -- options for blink-cmp-dictionary
+                    min_keyword_length = 0,
+                    opts = {
+                        -- Force fallback mode (recommended over setting get_command = '')
+                        force_fallback = true,
+                        -- options for blink-cmp-dictionary
+                    }
                 }
             },
         }
@@ -257,11 +261,11 @@ If none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will
 - May have **performance issues** with large dictionaries **only during the first load or when dictionary files are dynamically changed**. After the initial load, it provides consistent performance similar to external commands.
 
 **Manual Fallback:**
-You can force fallback mode by setting `get_command` to an empty string:
+You can force fallback mode by setting `force_fallback = true` (recommended):
 
 ```lua
 opts = {
-    get_command = '',
+    force_fallback = true,
     -- Other options for blink-cmp-dictionary
 }
 ```
@@ -388,21 +392,19 @@ When using external commands (`fzf`, `rg`, or `grep`), `blink-cmp-dictionary` ru
 When using fallback mode (no external commands), the plugin performs **synchronous** filtering, which may cause noticeable delays **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands.
 
 **General Recommendations:**
-- Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
-  a larger value is recommended. This is mainly because `blink-cmp-dictionary` actually
-  can handle this quickly, but there will be too many results return to `blink.cmp`, which
-  will make `blink.cmp` take a long time to fuzzy find the results.
-- **In fallback mode**, use a `min_keyword_length` of at least 3-4 to reduce the number of matches
-  and improve responsiveness.
-- Optionally, you can limit the number of items shown in the completion menu.
+- The `min_keyword_length` parameter can be set to 0 in most cases. If you experience performance issues with large dictionaries, try setting it to 2.
+- You can configure the maximum number of completion items using the `max_items` option at the provider level. The dictionary source will inherit this value from blink.cmp (default: 100). This applies fuzzy scoring to all matches and returns the top-scoring results.
 
 ```lua
 opts = {
     sources = {
         providers = {
             dictionary = {
+                module = 'blink-cmp-dictionary',
+                name = 'Dict',
+                min_keyword_length = 0,  -- Set to 2 if performance issues occur
                 -- Add this and change the value to your own preference
-                max_items = 8,
+                max_items = 8, -- blink-cmp-dictionary will inherit this, the default is 100
             }
         },
     }

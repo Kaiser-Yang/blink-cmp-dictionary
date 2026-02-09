@@ -4,6 +4,7 @@
 --- It runs synchronously and may have performance issues with large dictionaries
 
 local M = {}
+local utils = require('blink-cmp-dictionary.utils')
 
 --- @class blink-cmp-dictionary.TrieNode
 --- @field children table<string, blink-cmp-dictionary.TrieNode> # Child nodes
@@ -15,22 +16,21 @@ local trie_root = { children = {}, words = {} }
 --- @type table<string, string[]> # filepath -> list of words
 local file_word_lists = {}
 
---- Load a single dictionary file into cache
+--- Load a single dictionary file into cache using provided separate_output function
 --- @param filepath string
+--- @param separate_output function # Function to separate file content into words
 --- @return string[] # Words from this file
-local function load_file(filepath)
-    local words = {}
+local function load_file(filepath, separate_output)
     local f = io.open(filepath, 'r')
-    if f then
-        for line in f:lines() do
-            local word = line:match("^%s*(.-)%s*$") -- trim whitespace
-            if word and word ~= "" then
-                table.insert(words, word)
-            end
-        end
-        f:close()
+    if not f then
+        return {}
     end
-    return words
+    
+    local content = f:read('*all')
+    f:close()
+    
+    -- Use separate_output to parse the file content
+    return separate_output(content)
 end
 
 --- Insert a word into the trie for all its substrings
@@ -90,69 +90,9 @@ local function trie_remove(word, filepath)
     end
 end
 
---- Calculate fuzzy match score for a word against a pattern
---- Returns a score (higher is better) or nil if no match
---- Based on fzy algorithm: consecutive matches and position bonuses
---- @param word string
---- @param pattern string
---- @return number|nil # Score or nil if no match
-local function fuzzy_match_score(word, pattern)
-    if pattern == "" then
-        return 0
-    end
-    
-    local word_lower = word:lower()
-    local pattern_lower = pattern:lower()
-    
-    -- Check if all pattern characters exist in word (in order)
-    local word_idx = 1
-    local pattern_idx = 1
-    local match_positions = {}
-    
-    while pattern_idx <= #pattern_lower and word_idx <= #word_lower do
-        if word_lower:sub(word_idx, word_idx) == pattern_lower:sub(pattern_idx, pattern_idx) then
-            table.insert(match_positions, word_idx)
-            pattern_idx = pattern_idx + 1
-        end
-        word_idx = word_idx + 1
-    end
-    
-    -- If not all pattern characters matched, no match
-    if pattern_idx <= #pattern_lower then
-        return nil
-    end
-    
-    -- Calculate score based on match positions
-    local score = 0
-    local last_pos = nil
-    
-    for i, pos in ipairs(match_positions) do
-        -- Bonus for matches at the beginning
-        if pos == 1 then
-            score = score + 100
-        end
-        
-        -- Bonus for consecutive matches (skip first match)
-        if last_pos and pos == last_pos + 1 then
-            score = score + 50
-        end
-        
-        -- Penalty for later positions (prefer earlier matches)
-        score = score - pos
-        
-        last_pos = pos
-    end
-    
-    -- Bonus for shorter words (prefer exact or close matches)
-    -- Cap at 0 to avoid negative bonuses for long words
-    score = score + math.max(0, 100 - #word_lower)
-    
-    return score
-end
-
 --- Search in trie by traversing the entire pattern
 --- @param pattern string
---- @return table<string, boolean> # Set of matching words
+--- @return string[] # Array of matching words
 local function trie_search_fuzzy(pattern)
     if pattern == "" then
         return {}
@@ -176,7 +116,7 @@ local function trie_search_fuzzy(pattern)
     for word, files in pairs(node.words) do
         -- Only include words that have at least one active file
         if next(files) then
-            results[word] = true
+            table.insert(results, word)
         end
     end
     
@@ -185,8 +125,9 @@ end
 
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
+--- @param separate_output? function # Function to separate file content into words
 --- @return boolean # Success status
-function M.load_dictionaries(files)
+function M.load_dictionaries(files, separate_output)
     if not files or #files == 0 then
         -- Remove all words from all files from trie
         for filepath, word_list in pairs(file_word_lists) do
@@ -217,7 +158,7 @@ function M.load_dictionaries(files)
     -- Load new files (don't re-insert already loaded files)
     for _, filepath in ipairs(files) do
         if not file_word_lists[filepath] then
-            local words = load_file(filepath)
+            local words = load_file(filepath, separate_output)
             file_word_lists[filepath] = words
             -- Add words to trie
             for _, word in ipairs(words) do
@@ -240,30 +181,7 @@ function M.search(prefix, max_results)
         return {}
     end
     
-    -- Get candidate words from trie
-    local candidates = trie_search_fuzzy(prefix)
-    
-    -- Score and filter candidates
-    local matches = {}
-    for word, _ in pairs(candidates) do
-        local score = fuzzy_match_score(word, prefix)
-        if score then
-            table.insert(matches, {word = word, score = score})
-        end
-    end
-    
-    -- Sort by score (higher is better)
-    table.sort(matches, function(a, b)
-        return a.score > b.score
-    end)
-    
-    -- Extract top results
-    local results = {}
-    for i = 1, math.min(#matches, max_results) do
-        table.insert(results, matches[i].word)
-    end
-    
-    return results
+    return utils.get_top_matches(trie_search_fuzzy(prefix), prefix, max_results)
 end
 
 --- Clear the cache

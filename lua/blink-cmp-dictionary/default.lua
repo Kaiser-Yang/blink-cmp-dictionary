@@ -55,7 +55,6 @@ local function default_get_command_args(prefix, command)
             '--no-messages',
             '--no-filename',
             '--ignore-case',
-            '--max-count=100',
             '-F', --Fixed strings
             '--',
             prefix,
@@ -64,7 +63,6 @@ local function default_get_command_args(prefix, command)
         return {
             '--color=never',
             '--ignore-case',
-            '--max-count=100',
             '-F', --Fixed strings
             '--',
             prefix,
@@ -92,7 +90,6 @@ local function default_separate_output(output)
     local items = {}
     for line in output:gmatch("[^\r\n]+") do
         table.insert(items, line)
-        if #items == 100 then break end
     end
     return items
 end
@@ -146,6 +143,8 @@ return {
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
+    -- Force using fallback mode instead of external commands (default: false)
+    force_fallback = false,
     -- Whether or not to capitalize the first letter of the word
     capitalize_first = default_capitalize_first,
     -- Whether or not to capitalize the whole word

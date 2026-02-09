@@ -61,4 +61,169 @@ function M.decapitalize(s, decapitalize_whole_word)
     return res
 end
 
+--- Calculate fuzzy match score for a word against a pattern
+--- Returns a score (higher is better) or nil if no match
+--- Based on fzy algorithm: consecutive matches and position bonuses
+--- @param word string
+--- @param pattern string
+--- @return number|nil # Score or nil if no match
+local function fuzzy_match_score(word, pattern)
+    if pattern == "" then
+        return 0
+    end
+    
+    local word_lower = word:lower()
+    local pattern_lower = pattern:lower()
+    
+    -- Check if all pattern characters exist in word (in order)
+    local word_idx = 1
+    local pattern_idx = 1
+    local match_positions = {}
+    
+    while pattern_idx <= #pattern_lower and word_idx <= #word_lower do
+        if word_lower:sub(word_idx, word_idx) == pattern_lower:sub(pattern_idx, pattern_idx) then
+            table.insert(match_positions, word_idx)
+            pattern_idx = pattern_idx + 1
+        end
+        word_idx = word_idx + 1
+    end
+    
+    -- If not all pattern characters matched, no match
+    if pattern_idx <= #pattern_lower then
+        return nil
+    end
+    
+    -- Calculate score based on match positions
+    local score = 0
+    local last_pos = nil
+    
+    for i, pos in ipairs(match_positions) do
+        -- Bonus for matches at the beginning
+        if pos == 1 then
+            score = score + 100
+        end
+        
+        -- Bonus for consecutive matches (skip first match)
+        if last_pos and pos == last_pos + 1 then
+            score = score + 50
+        end
+        
+        -- Penalty for later positions (prefer earlier matches)
+        score = score - pos
+        
+        last_pos = pos
+    end
+    
+    -- Bonus for shorter words (prefer exact or close matches)
+    -- Cap at 0 to avoid negative bonuses for long words
+    score = score + math.max(0, 100 - #word_lower)
+    
+    return score
+end
+
+--- Get top N items by fuzzy match score using quickselect algorithm
+--- Based on nth_element from C++ STL, uses partition from quicksort
+--- Average O(n) complexity, better than heap-based O(n + k log k)
+--- @param items string[] # List of items to score
+--- @param pattern string # Pattern to match against
+--- @param max_items number # Maximum number of items to return
+--- @return string[] # Top N items (not guaranteed to be sorted)
+function M.get_top_matches(items, pattern, max_items)
+    if not items or #items == 0 then
+        return {}
+    end
+    
+    -- Score all items
+    local scored = {}
+    for _, item in ipairs(items) do
+        local score = fuzzy_match_score(item, pattern)
+        if score then
+            table.insert(scored, {item = item, score = score})
+        end
+    end
+    
+    local n = #scored
+    if n == 0 then
+        return {}
+    end
+    
+    -- If we have fewer items than max_items, return all
+    if n <= max_items then
+        local results = {}
+        for i = 1, n do
+            table.insert(results, scored[i].item)
+        end
+        return results
+    end
+    
+    -- Partition function: rearranges elements so that elements >= pivot are on the left
+    -- Returns the final position of the pivot
+    local function partition(arr, left, right, pivot_idx)
+        local pivot_score = arr[pivot_idx].score
+        -- Move pivot to end
+        arr[pivot_idx], arr[right] = arr[right], arr[pivot_idx]
+        
+        local store_idx = left
+        for i = left, right - 1 do
+            -- We want larger scores first, so use >= instead of <=
+            if arr[i].score >= pivot_score then
+                arr[store_idx], arr[i] = arr[i], arr[store_idx]
+                store_idx = store_idx + 1
+            end
+        end
+        
+        -- Move pivot to its final position
+        arr[store_idx], arr[right] = arr[right], arr[store_idx]
+        return store_idx
+    end
+    
+    -- Iterative quickselect to find top k elements
+    -- After this, the first max_items elements will be the top scoring ones
+    local left = 1
+    local right = n
+    local k = max_items
+    
+    while left < right do
+        -- Choose pivot (median-of-three for better performance)
+        local mid = math.floor((left + right) / 2)
+        local pivot_idx
+        
+        if scored[left].score >= scored[mid].score then
+            if scored[mid].score >= scored[right].score then
+                pivot_idx = mid
+            elseif scored[left].score >= scored[right].score then
+                pivot_idx = right
+            else
+                pivot_idx = left
+            end
+        else
+            if scored[left].score >= scored[right].score then
+                pivot_idx = left
+            elseif scored[mid].score >= scored[right].score then
+                pivot_idx = right
+            else
+                pivot_idx = mid
+            end
+        end
+        
+        pivot_idx = partition(scored, left, right, pivot_idx)
+        
+        if pivot_idx == k then
+            break
+        elseif pivot_idx < k then
+            left = pivot_idx + 1
+        else
+            right = pivot_idx - 1
+        end
+    end
+    
+    -- Extract top k items
+    local results = {}
+    for i = 1, max_items do
+        table.insert(results, scored[i].item)
+    end
+    
+    return results
+end
+
 return M
