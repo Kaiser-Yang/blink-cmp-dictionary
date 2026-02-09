@@ -99,7 +99,7 @@ local function read_file_async(filepath, callback)
     -- Mark as loading and add the initial callback to pending list
     file_cache[filepath] = { loading = true, pending_callbacks = { callback } }
     
-    -- Helper to handle errors
+    -- Helper to handle errors for this specific filepath
     local function handle_error(error_msg)
         local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
         file_cache[filepath] = nil
@@ -180,8 +180,8 @@ local function read_dictionary_files_async(files, callback)
                 -- All files processed (some may have failed)
                 callback_invoked = true
                 local full_content = table.concat(content_parts, '\n')
-                -- Only return nil if all files failed (empty content)
-                if full_content == '' or full_content:match('^[\n]*$') then
+                -- Only return nil if content is empty or whitespace only
+                if full_content == '' or full_content:match('^%s*$') then
                     callback(nil)
                 else
                     callback(full_content)
