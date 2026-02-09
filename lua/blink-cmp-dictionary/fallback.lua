@@ -1,141 +1,30 @@
 --- Fallback search implementation that doesn't depend on external tools
---- This module provides a pure Lua implementation for fuzzy search similar to fzf
---- Uses a trie data structure with suffix indexing for efficient fuzzy matching
---- It runs synchronously and may have performance issues with large dictionaries
+--- This module provides a pure Lua implementation for fuzzy search
+--- Uses async file reading and direct fuzzy matching without trie structures
 
 local M = {}
 local utils = require('blink-cmp-dictionary.utils')
 
---- @class blink-cmp-dictionary.TrieNode
---- @field children table<string, blink-cmp-dictionary.TrieNode> # Child nodes
---- @field words table<string, table<string, boolean>> # words[word][filepath] = true for active words
-
---- @type blink-cmp-dictionary.TrieNode
-local trie_root = { children = {}, words = {} }
-
 --- @type table<string, string[]> # filepath -> list of words
 local file_word_lists = {}
 
---- Load a single dictionary file into cache using provided separate_output function
---- @param filepath string
---- @param separate_output function # Function to separate file content into words
---- @return string[] # Words from this file
-local function load_file(filepath, separate_output)
-    local f = io.open(filepath, 'r')
-    if not f then
-        return {}
-    end
-    
-    local content = f:read('*all')
-    f:close()
-    
-    -- Use separate_output to parse the file content
-    return separate_output(content)
-end
-
---- Insert a word into the trie for all its substrings
---- @param word string
---- @param filepath string
-local function trie_insert(word, filepath)
-    local word_lower = word:lower()
-    
-    -- Insert for all substrings starting at each position
-    for start_pos = 1, #word_lower do
-        local node = trie_root
-        
-        -- Build path from this starting position
-        for i = start_pos, #word_lower do
-            local char = word_lower:sub(i, i)
-            if not node.children[char] then
-                node.children[char] = { children = {}, words = {} }
-            end
-            node = node.children[char]
-            
-            -- Store the original word and which file it's from
-            if not node.words[word] then
-                node.words[word] = {}
-            end
-            node.words[word][filepath] = true
-        end
-    end
-end
-
---- Remove a word from the trie (remove filepath association)
---- @param word string
---- @param filepath string
-local function trie_remove(word, filepath)
-    local word_lower = word:lower()
-    
-    -- Remove from all substrings starting at each position
-    for start_pos = 1, #word_lower do
-        local node = trie_root
-        
-        -- Traverse path from this starting position
-        for i = start_pos, #word_lower do
-            local char = word_lower:sub(i, i)
-            if not node.children[char] then
-                break -- Path doesn't exist
-            end
-            node = node.children[char]
-            
-            -- Remove filepath association
-            if node.words[word] then
-                node.words[word][filepath] = nil
-                -- If no more files reference this word, remove it completely
-                if not next(node.words[word]) then
-                    node.words[word] = nil
-                end
-            end
-        end
-    end
-end
-
---- Search in trie by traversing the entire pattern
---- @param pattern string
---- @return string[] # Array of matching words
-local function trie_search_fuzzy(pattern)
-    if pattern == "" then
-        return {}
-    end
-    
-    local pattern_lower = pattern:lower()
-    local node = trie_root
-    local results = {}
-    
-    -- Traverse the trie following the pattern characters
-    for i = 1, #pattern_lower do
-        local char = pattern_lower:sub(i, i)
-        if not node.children[char] then
-            -- Pattern not found in trie
-            return {}
-        end
-        node = node.children[char]
-    end
-    
-    -- Collect all words at the final node that have active file references
-    for word, files in pairs(node.words) do
-        -- Only include words that have at least one active file
-        if next(files) then
-            table.insert(results, word)
-        end
-    end
-    
-    return results
-end
+--- @type table<string, boolean> # filepath -> enabled status
+local file_enabled = {}
 
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
 --- @param separate_output? function # Function to separate file content into words
---- @return boolean # Success status
-function M.load_dictionaries(files, separate_output)
+--- @param callback function(number, string|nil) # Callback called with (return_code, standard_error)
+function M.load_dictionaries(files, separate_output, callback)
     if not files or #files == 0 then
-        -- Remove all words from all files from trie
-        for filepath, word_list in pairs(file_word_lists) do
-            for _, word in ipairs(word_list) do
-                trie_remove(word, filepath)
-            end
+        -- Don't clear cache - just mark all files as disabled
+        for filepath, _ in pairs(file_word_lists) do
+            file_enabled[filepath] = false
         end
-        return true
+        if callback then
+            callback(0, nil)  -- Success - no errors
+        end
+        return
     end
     
     -- Create a set of current files for quick lookup
@@ -144,30 +33,55 @@ function M.load_dictionaries(files, separate_output)
         current_files[file] = true
     end
     
-    -- Remove words from files that are no longer in the list
-    for filepath, word_list in pairs(file_word_lists) do
-        if not current_files[filepath] then
-            for _, word in ipairs(word_list) do
-                trie_remove(word, filepath)
-            end
-            -- Clean up the file entry to avoid memory leak
-            file_word_lists[filepath] = nil
-        end
+    -- Mark files as enabled or disabled based on current list
+    for filepath, _ in pairs(file_word_lists) do
+        file_enabled[filepath] = current_files[filepath] or false
     end
     
-    -- Load new files (don't re-insert already loaded files)
+    -- Mark new files as enabled
+    for _, filepath in ipairs(files) do
+        file_enabled[filepath] = true
+    end
+    
+    -- Load new files asynchronously
+    local files_to_load = {}
     for _, filepath in ipairs(files) do
         if not file_word_lists[filepath] then
-            local words = load_file(filepath, separate_output)
-            file_word_lists[filepath] = words
-            -- Add words to trie
-            for _, word in ipairs(words) do
-                trie_insert(word, filepath)
-            end
+            table.insert(files_to_load, filepath)
         end
     end
     
-    return true
+    if #files_to_load == 0 then
+        -- All files already cached
+        if callback then
+            callback(0, nil)  -- Success - no errors
+        end
+        return
+    end
+    
+    -- Read all files at once to avoid multiple callback invocations
+    -- Note: All files loaded together share the same word list (concatenated content)
+    -- This is a trade-off: simpler code and single callback vs per-file word granularity
+    utils.read_dictionary_files_async(files_to_load, function(return_code, standard_error, content)
+        if content then
+            -- Parse content into words using separate_output
+            local words = separate_output(content)
+            -- Store the same word list for all loaded files
+            -- This is acceptable since files are loaded together as a batch
+            for _, filepath in ipairs(files_to_load) do
+                file_word_lists[filepath] = words
+            end
+        else
+            -- Mark failed files with empty word lists
+            for _, filepath in ipairs(files_to_load) do
+                file_word_lists[filepath] = {}
+            end
+        end
+        
+        if callback then
+            callback(return_code, standard_error)  -- Pass errors through
+        end
+    end, false)  -- Disable cache in utils to let fallback manage its own cache
 end
 
 --- Search for words matching the given prefix with fuzzy matching
@@ -181,30 +95,24 @@ function M.search(prefix, max_results)
         return {}
     end
     
-    return utils.get_top_matches(trie_search_fuzzy(prefix), prefix, max_results)
-end
-
---- Clear the cache
-function M.clear_cache()
-    file_word_lists = {}
-    trie_root = { children = {}, words = {} }
-end
-
---- Get cache statistics
---- @return { word_count: number, file_count: number }
-function M.get_stats()
-    local total_words = 0
-    local file_count = 0
+    -- Collect all words from enabled cached files only
+    local all_words = {}
+    local seen = {}
     
-    for _, word_list in pairs(file_word_lists) do
-        total_words = total_words + #word_list
-        file_count = file_count + 1
+    for filepath, word_list in pairs(file_word_lists) do
+        -- Only include words from enabled files
+        if file_enabled[filepath] then
+            for _, word in ipairs(word_list) do
+                if not seen[word] then
+                    table.insert(all_words, word)
+                    seen[word] = true
+                end
+            end
+        end
     end
     
-    return {
-        word_count = total_words,
-        file_count = file_count,
-    }
+    -- Use get_top_matches to perform fuzzy matching and return top results
+    return utils.get_top_matches(all_words, prefix, max_results)
 end
 
 return M

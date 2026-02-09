@@ -1,5 +1,10 @@
 local M = {}
 
+-- Cache for individual dictionary file contents
+-- Key: file path, Value: { content = string } or { loading = true, pending_callbacks = {callbacks} }
+local file_cache = {}
+local uv = vim.uv or vim.loop
+
 function M.get_option(opt, ...)
     if type(opt) == 'function' then
         return opt(...)
@@ -224,6 +229,147 @@ function M.get_top_matches(items, pattern, max_items)
     end
     
     return results
+end
+
+--- Read a single file asynchronously using libuv with caching (internal function)
+--- @param filepath string
+--- @param callback function(number, string|nil, string|nil) Called with (return_code, standard_error, content)
+--- @param use_cache? boolean Whether to use file cache (default: true)
+local function read_file_async(filepath, callback, use_cache)
+    use_cache = use_cache ~= false  -- Default to true unless explicitly false
+    
+    -- Check if already cached (only if caching is enabled)
+    if use_cache and file_cache[filepath] and file_cache[filepath].content then
+        callback(0, nil, file_cache[filepath].content)
+        return
+    end
+    
+    -- Check if already loading (only if caching is enabled)
+    if use_cache and file_cache[filepath] and file_cache[filepath].loading then
+        -- Add callback to pending list
+        table.insert(file_cache[filepath].pending_callbacks, callback)
+        return
+    end
+    
+    -- Mark as loading and add the initial callback to pending list (only if caching is enabled)
+    if use_cache then
+        file_cache[filepath] = { loading = true, pending_callbacks = { callback } }
+    end
+    
+    -- Helper to handle errors for this specific filepath
+    local function handle_error(error_msg)
+        if use_cache then
+            local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
+            file_cache[filepath] = nil
+            vim.schedule(function()
+                for _, cb in ipairs(pending) do
+                    cb(1, error_msg, nil)
+                end
+            end)
+        else
+            vim.schedule(function()
+                callback(1, error_msg, nil)
+            end)
+        end
+    end
+    
+    uv.fs_open(filepath, 'r', 438, function(err_open, fd)
+        if err_open or not fd then
+            handle_error(err_open or 'Failed to open file')
+            return
+        end
+        
+        uv.fs_fstat(fd, function(err_stat, stat)
+            if err_stat or not stat then
+                uv.fs_close(fd, function() end)
+                handle_error(err_stat or 'Failed to stat file')
+                return
+            end
+            
+            uv.fs_read(fd, stat.size, 0, function(err_read, data)
+                uv.fs_close(fd, function() end)
+                
+                if err_read then
+                    handle_error(err_read)
+                else
+                    if use_cache then
+                        local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
+                        file_cache[filepath] = { content = data }
+                        vim.schedule(function()
+                            for _, cb in ipairs(pending) do
+                                cb(0, nil, data)
+                            end
+                        end)
+                    else
+                        vim.schedule(function()
+                            callback(0, nil, data)
+                        end)
+                    end
+                end
+            end)
+        end)
+    end)
+end
+
+--- Read dictionary files asynchronously and concatenate the content
+--- Accepts either a single file path (string) or multiple file paths (string[])
+--- @param files string|string[] Single file path or list of dictionary file paths
+--- @param callback function(number, string|nil, string|nil) Called with (return_code, standard_error, content)
+--- @param use_cache? boolean Whether to use file cache (default: true)
+function M.read_dictionary_files_async(files, callback, use_cache)
+    use_cache = use_cache ~= false  -- Default to true unless explicitly false
+    
+    -- Validate input before type conversion
+    if not files then
+        callback(1, "No files provided", nil)
+        return
+    end
+    
+    -- Handle single file case - convert to array
+    if type(files) == 'string' then
+        files = { files }
+    end
+    
+    if #files == 0 then
+        callback(1, "Empty file list", nil)
+        return
+    end
+    
+    -- Read all files asynchronously (each file uses per-file caching based on use_cache)
+    local content_parts = {}
+    local error_parts = {}
+    local remaining = #files
+    local has_errors = false
+    
+    for i, filepath in ipairs(files) do
+        read_file_async(filepath, function(return_code, err, content)
+            if return_code ~= 0 then
+                -- Track errors but continue processing
+                has_errors = true
+                error_parts[i] = err or "Unknown error"
+                content_parts[i] = ''
+            else
+                content_parts[i] = content or ''
+            end
+            
+            remaining = remaining - 1
+            
+            if remaining == 0 then
+                -- All files processed (some may have failed)
+                local full_content = table.concat(content_parts, '\n')
+                local full_errors = table.concat(error_parts, '; ')
+                
+                -- Return with appropriate status
+                if full_content == '' or full_content:match('^%s*$') then
+                    -- No content available
+                    callback(1, full_errors ~= '' and full_errors or "No content available", nil)
+                else
+                    -- Have some content, pass errors if any
+                    callback(has_errors and 1 or 0, has_errors and full_errors or nil, full_content)
+                end
+            end
+        end, use_cache)
+    end
 end
 
 return M
