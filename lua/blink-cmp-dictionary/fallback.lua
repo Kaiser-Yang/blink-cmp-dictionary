@@ -184,27 +184,14 @@ function M.search(prefix, max_results)
     -- Get candidate words from trie
     local candidates = trie_search_fuzzy(prefix)
     
-    -- Score and filter candidates
-    local matches = {}
+    -- Convert candidates set to array
+    local words = {}
     for word, _ in pairs(candidates) do
-        local score = utils.fuzzy_match_score(word, prefix)
-        if score then
-            table.insert(matches, {word = word, score = score})
-        end
+        table.insert(words, word)
     end
     
-    -- Sort by score (higher is better)
-    table.sort(matches, function(a, b)
-        return a.score > b.score
-    end)
-    
-    -- Extract top results
-    local results = {}
-    for i = 1, math.min(#matches, max_results) do
-        table.insert(results, matches[i].word)
-    end
-    
-    return results
+    -- Use utils.get_top_matches to score and select top results
+    return utils.get_top_matches(words, prefix, max_results)
 end
 
 --- Clear the cache
