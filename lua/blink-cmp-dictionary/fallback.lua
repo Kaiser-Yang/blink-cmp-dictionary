@@ -1,24 +1,20 @@
 --- Fallback search implementation that doesn't depend on external tools
 --- This module provides a pure Lua implementation for fuzzy search similar to fzf
---- Uses a trie data structure for efficient fuzzy matching
+--- Uses a trie data structure with suffix indexing for efficient fuzzy matching
 --- It runs synchronously and may have performance issues with large dictionaries
 
 local M = {}
 
 --- @class blink-cmp-dictionary.TrieNode
 --- @field children table<string, blink-cmp-dictionary.TrieNode> # Child nodes
---- @field words table<string, boolean> # Words that end at or pass through this node
+--- @field words table<string, table<string, boolean>> # words[word][filepath] = true for active words
 --- @field is_end boolean # Whether this is the end of a word
-
---- @class blink-cmp-dictionary.FileCache
---- @field enabled boolean # Whether this cache entry is currently enabled
---- @field word_list string[] # List of words for this file (for enable/disable)
-
---- @type table<string, blink-cmp-dictionary.FileCache>
-local file_caches = {}
 
 --- @type blink-cmp-dictionary.TrieNode
 local trie_root = { children = {}, words = {}, is_end = false }
+
+--- @type table<string, string[]> # filepath -> list of words
+local file_word_lists = {}
 
 --- Load a single dictionary file into cache
 --- @param filepath string
@@ -38,41 +34,60 @@ local function load_file(filepath)
     return words
 end
 
---- Insert a word into the trie
+--- Insert a word into the trie for all its substrings
 --- @param word string
-local function trie_insert(word)
-    local node = trie_root
+--- @param filepath string
+local function trie_insert(word, filepath)
     local word_lower = word:lower()
     
-    -- Insert into trie character by character
-    for i = 1, #word_lower do
-        local char = word_lower:sub(i, i)
-        if not node.children[char] then
-            node.children[char] = { children = {}, words = {}, is_end = false }
+    -- Insert for all substrings starting at each position
+    for start_pos = 1, #word_lower do
+        local node = trie_root
+        
+        -- Build path from this starting position
+        for i = start_pos, #word_lower do
+            local char = word_lower:sub(i, i)
+            if not node.children[char] then
+                node.children[char] = { children = {}, words = {}, is_end = false }
+            end
+            node = node.children[char]
+            
+            -- Store the original word and which file it's from
+            if not node.words[word] then
+                node.words[word] = {}
+            end
+            node.words[word][filepath] = true
         end
-        node = node.children[char]
-        -- Store the original word at each node it passes through
-        node.words[word] = true
     end
-    
-    node.is_end = true
 end
 
---- Remove a word from the trie
+--- Remove a word from the trie (remove filepath association)
 --- @param word string
-local function trie_remove(word)
+--- @param filepath string
+local function trie_remove(word, filepath)
     local word_lower = word:lower()
-    local node = trie_root
     
-    -- Traverse and remove word from all nodes
-    for i = 1, #word_lower do
-        local char = word_lower:sub(i, i)
-        if not node.children[char] then
-            return -- Word not in trie
+    -- Remove from all substrings starting at each position
+    for start_pos = 1, #word_lower do
+        local node = trie_root
+        
+        -- Traverse path from this starting position
+        for i = start_pos, #word_lower do
+            local char = word_lower:sub(i, i)
+            if not node.children[char] then
+                break -- Path doesn't exist
+            end
+            node = node.children[char]
+            
+            -- Remove filepath association
+            if node.words[word] then
+                node.words[word][filepath] = nil
+                -- If no more files reference this word, remove it completely
+                if next(node.words[word]) == nil then
+                    node.words[word] = nil
+                end
+            end
         end
-        node = node.children[char]
-        -- Remove word from this node's word set
-        node.words[word] = nil
     end
 end
 
@@ -150,9 +165,12 @@ local function trie_search_fuzzy(pattern)
     
     -- Start search from nodes that match the first character
     if trie_root.children[first_char] then
-        -- Collect all words that pass through this node
-        for word, _ in pairs(trie_root.children[first_char].words) do
-            results[word] = true
+        -- Collect all words that pass through this node and have active file references
+        for word, files in pairs(trie_root.children[first_char].words) do
+            -- Only include words that have at least one active file
+            if next(files) then
+                results[word] = true
+            end
         end
     end
     
@@ -164,14 +182,10 @@ end
 --- @return boolean # Success status
 function M.load_dictionaries(files)
     if not files or #files == 0 then
-        -- Mark all caches as disabled but don't clear them
-        for _, cache in pairs(file_caches) do
-            if cache.enabled then
-                cache.enabled = false
-                -- Remove words from trie
-                for _, word in ipairs(cache.word_list) do
-                    trie_remove(word)
-                end
+        -- Remove all words from all files from trie
+        for filepath, word_list in pairs(file_word_lists) do
+            for _, word in ipairs(word_list) do
+                trie_remove(word, filepath)
             end
         end
         return true
@@ -183,42 +197,31 @@ function M.load_dictionaries(files)
         current_files[file] = true
     end
     
-    -- Mark cached files that are no longer in the list as disabled
-    for filepath, cache in pairs(file_caches) do
+    -- Remove words from files that are no longer in the list
+    for filepath, word_list in pairs(file_word_lists) do
         if not current_files[filepath] then
-            if cache.enabled then
-                cache.enabled = false
-                -- Remove words from trie
-                for _, word in ipairs(cache.word_list) do
-                    trie_remove(word)
-                end
+            for _, word in ipairs(word_list) do
+                trie_remove(word, filepath)
             end
         end
     end
     
     -- Load or re-enable files as needed
     for _, filepath in ipairs(files) do
-        local cached = file_caches[filepath]
+        local cached_words = file_word_lists[filepath]
         
         -- Load file if not cached
-        if not cached then
+        if not cached_words then
             local words = load_file(filepath)
-            file_caches[filepath] = {
-                word_list = words,
-                enabled = true,
-            }
+            file_word_lists[filepath] = words
             -- Add words to trie
             for _, word in ipairs(words) do
-                trie_insert(word)
+                trie_insert(word, filepath)
             end
         else
-            -- Re-enable if it was disabled
-            if not cached.enabled then
-                cached.enabled = true
-                -- Re-add words to trie
-                for _, word in ipairs(cached.word_list) do
-                    trie_insert(word)
-                end
+            -- Re-add words if they were removed
+            for _, word in ipairs(cached_words) do
+                trie_insert(word, filepath)
             end
         end
     end
@@ -265,7 +268,7 @@ end
 
 --- Clear the cache
 function M.clear_cache()
-    file_caches = {}
+    file_word_lists = {}
     trie_root = { children = {}, words = {}, is_end = false }
 end
 
@@ -275,11 +278,9 @@ function M.get_stats()
     local total_words = 0
     local file_count = 0
     
-    for _, file_cache in pairs(file_caches) do
-        if file_cache.enabled then
-            total_words = total_words + #file_cache.word_list
-            file_count = file_count + 1
-        end
+    for _, word_list in pairs(file_word_lists) do
+        total_words = total_words + #word_list
+        file_count = file_count + 1
     end
     
     return {
