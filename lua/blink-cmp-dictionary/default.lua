@@ -32,7 +32,8 @@ local function build_word_character_pattern(iskeyword)
             if start_num and end_num then
                 start_num = tonumber(start_num)
                 end_num = tonumber(end_num)
-                if start_num and end_num then
+                -- Validate range is within valid byte range (0-255)
+                if start_num and end_num and start_num >= 0 and end_num <= 255 and start_num <= end_num then
                     -- Convert numbers to characters
                     local start_char = string.char(start_num)
                     local end_char = string.char(end_num)
@@ -57,9 +58,15 @@ end
 
 --- Build the word_pattern based on current iskeyword setting
 --- Uses caching to avoid rebuilding on every call
+--- @param bufnr number|nil # Buffer number (nil uses current buffer)
 --- @return table # An lpeg pattern for matching words
-local function build_word_pattern()
-    local iskeyword = vim.bo.iskeyword or DEFAULT_ISKEYWORD
+local function build_word_pattern(bufnr)
+    local iskeyword
+    if bufnr then
+        iskeyword = vim.bo[bufnr].iskeyword or DEFAULT_ISKEYWORD
+    else
+        iskeyword = vim.bo.iskeyword or DEFAULT_ISKEYWORD
+    end
     
     -- Check if we can use cached pattern
     if cached_iskeyword == iskeyword and cached_pattern then
@@ -89,10 +96,11 @@ local function build_word_pattern()
 end
 
 --- @param prefix string # The prefix to be matched
+--- @param bufnr number|nil # Buffer number (nil uses current buffer)
 --- @return string
-local function match_prefix(prefix)
+local function match_prefix(prefix, bufnr)
     -- Build word_pattern dynamically based on current iskeyword setting
-    local word_pattern = build_word_pattern()
+    local word_pattern = build_word_pattern(bufnr)
     local match_res = vim.lpeg.match(word_pattern, prefix)
     if not match_res or #match_res == 0 then
         return ''
@@ -201,7 +209,7 @@ local function default_get_documentation(item)
 end
 
 local function default_get_prefix(context)
-    return match_prefix(context.line:sub(1, context.cursor[2]))
+    return match_prefix(context.line:sub(1, context.cursor[2]), context.bufnr)
 end
 
 local function default_capitalize_first(context, match)
