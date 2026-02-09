@@ -108,8 +108,8 @@ local function match_prefix(prefix, bufnr)
     local result = match_res[#match_res]
     
     -- Filter out common punctuation symbols at the beginning
-    -- This includes: . , ; : ! ? ' " ` ( ) [ ] { } < > / \ | @ # $ % ^ & * + = ~ -
-    local cleaned_result = result:gsub("^[%.,%%;:!?'\"%(%)%[%]{}%s<>/\\|@#$%%^&*+=~-]+", "")
+    -- This includes: . , ; : ! ? ' " ` ( ) [ ] { } < > / \ | @ # $ % ^ & * + = ~ - _
+    local cleaned_result = result:gsub("^[%.,%%;:!?'\"` %(%)%[%]{}%s<>/\\|@#$%%^&*+=~%-%_]+", "")
     
     return cleaned_result
 end
