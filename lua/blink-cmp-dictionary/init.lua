@@ -52,18 +52,8 @@ local function assemble_completion_items_from_output(feature, result, prefix, ma
     local separated_items = feature.separate_output(result)
     -- Then, apply fuzzy scoring and limit to max_items
     local top_items = utils.get_top_matches(separated_items, prefix, max_items)
-    -- Finally, assemble completion items
-    local items = {}
-    for i, v in ipairs(top_items) do
-        items[i] = {
-            label = feature.get_label(v),
-            kind_name = feature.get_kind_name(v),
-            insert_text = feature.get_insert_text(v),
-            documentation = feature.get_documentation(v),
-        }
-    end
-    -- feature.configure_score_offset(items)
-    return items
+    -- Finally, assemble completion items using the shared function
+    return assemble_completion_items_from_words(feature, top_items)
 end
 
 --- Assemble completion items from already-separated words (fallback mode)
