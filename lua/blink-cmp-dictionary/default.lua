@@ -88,13 +88,8 @@ end
 
 local function default_separate_output(output)
     local items = {}
-    local max_candidates = 10000 -- Collect up to 10000 items to prevent excessive memory usage
     for line in output:gmatch("[^\r\n]+") do
         table.insert(items, line)
-        -- Limit candidates to prevent excessive memory usage
-        if #items >= max_candidates then
-            break
-        end
     end
     return items
 end

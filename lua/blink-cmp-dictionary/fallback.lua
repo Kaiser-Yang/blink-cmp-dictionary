@@ -181,12 +181,9 @@ function M.search(prefix, max_results)
         return {}
     end
     
-    -- Get candidate words from trie
-    local candidates = trie_search_fuzzy(prefix)
-    
-    -- Convert candidates set to array
+    -- Get candidate words from trie and convert to array
     local words = {}
-    for word, _ in pairs(candidates) do
+    for word, _ in pairs(trie_search_fuzzy(prefix)) do
         table.insert(words, word)
     end
     
