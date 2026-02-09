@@ -8,10 +8,9 @@ local M = {}
 --- @class blink-cmp-dictionary.TrieNode
 --- @field children table<string, blink-cmp-dictionary.TrieNode> # Child nodes
 --- @field words table<string, table<string, boolean>> # words[word][filepath] = true for active words
---- @field is_end boolean # Whether this is the end of a word
 
 --- @type blink-cmp-dictionary.TrieNode
-local trie_root = { children = {}, words = {}, is_end = false }
+local trie_root = { children = {}, words = {} }
 
 --- @type table<string, string[]> # filepath -> list of words
 local file_word_lists = {}
@@ -48,7 +47,7 @@ local function trie_insert(word, filepath)
         for i = start_pos, #word_lower do
             local char = word_lower:sub(i, i)
             if not node.children[char] then
-                node.children[char] = { children = {}, words = {}, is_end = false }
+                node.children[char] = { children = {}, words = {} }
             end
             node = node.children[char]
             
@@ -151,7 +150,7 @@ local function fuzzy_match_score(word, pattern)
     return score
 end
 
---- Search in trie starting from a node with a pattern
+--- Search in trie by traversing the entire pattern
 --- @param pattern string
 --- @return table<string, boolean> # Set of matching words
 local function trie_search_fuzzy(pattern)
@@ -160,17 +159,24 @@ local function trie_search_fuzzy(pattern)
     end
     
     local pattern_lower = pattern:lower()
-    local first_char = pattern_lower:sub(1, 1)
+    local node = trie_root
     local results = {}
     
-    -- Start search from nodes that match the first character
-    if trie_root.children[first_char] then
-        -- Collect all words that pass through this node and have active file references
-        for word, files in pairs(trie_root.children[first_char].words) do
-            -- Only include words that have at least one active file
-            if next(files) then
-                results[word] = true
-            end
+    -- Traverse the trie following the pattern characters
+    for i = 1, #pattern_lower do
+        local char = pattern_lower:sub(i, i)
+        if not node.children[char] then
+            -- Pattern not found in trie
+            return {}
+        end
+        node = node.children[char]
+    end
+    
+    -- Collect all words at the final node that have active file references
+    for word, files in pairs(node.words) do
+        -- Only include words that have at least one active file
+        if next(files) then
+            results[word] = true
         end
     end
     
@@ -263,7 +269,7 @@ end
 --- Clear the cache
 function M.clear_cache()
     file_word_lists = {}
-    trie_root = { children = {}, words = {}, is_end = false }
+    trie_root = { children = {}, words = {} }
 end
 
 --- Get cache statistics
