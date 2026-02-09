@@ -343,7 +343,7 @@ function M.read_dictionary_files_async(files, callback, use_cache)
     
     for i, filepath in ipairs(files) do
         read_file_async(filepath, function(return_code, err, content)
-            if return_code ~= 0 or err then
+            if return_code ~= 0 then
                 -- Track errors but continue processing
                 has_errors = true
                 error_parts[i] = err or "Unknown error"

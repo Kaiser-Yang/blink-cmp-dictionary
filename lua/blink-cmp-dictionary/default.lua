@@ -75,7 +75,7 @@ end
 local function default_on_error(return_value, standard_error)
     if utils.truthy(standard_error) then
         vim.schedule(function()
-            log.warn('Operation failed',
+            log.warn('Dictionary file operation failed',
                 '\n',
                 'with error code:', return_value,
                 '\n',
