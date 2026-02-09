@@ -31,7 +31,7 @@ If `cat` is not available, or if `cat` is available but **none** of `fzf`, `rg`,
 * Set `get_command = ''` (empty string) in configuration to force fallback mode
 
 > [!WARNING]
-> Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words). For better performance, install `cat` and at least one of `fzf`, `rg`, or `grep`.
+> Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words) **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands. For better performance, install `cat` and at least one of `fzf`, `rg`, or `grep`.
 
 ## Installation
 
@@ -92,13 +92,10 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                 dictionary = {
                     module = 'blink-cmp-dictionary',
                     name = 'Dict',
-                    -- Use a higher min_keyword_length in fallback mode for better performance
-                    min_keyword_length = 4,
-                    opts = {
-                        -- Force fallback mode
-                        get_command = '',
-                        -- options for blink-cmp-dictionary
-                    }
+                    min_keyword_length = 3,
+                    -- Force fallback mode
+                    get_command = '',
+                    -- options for blink-cmp-dictionary
                 }
             },
         }
@@ -264,7 +261,7 @@ By default, `blink-cmp-dictionary` will use `cat` to concatenate dictionary file
 If `cat` is not available, or if `cat` is available but none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
 - Does **not** require `plenary.nvim`
 - Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
-- May have **performance issues** with large dictionaries
+- May have **performance issues** with large dictionaries **only during the first load or when dictionary files are dynamically changed**. After the initial load, it provides consistent performance similar to external commands.
 
 **Manual Fallback:**
 You can force fallback mode by setting `get_command` to an empty string:
@@ -272,7 +269,7 @@ You can force fallback mode by setting `get_command` to an empty string:
 ```lua
 opts = {
     get_command = '',
-    -- When using fallback, increase min_keyword_length for better performance
+    -- Other options for blink-cmp-dictionary
 }
 ```
 
@@ -395,7 +392,7 @@ opts = {
 When using external commands (`fzf`, `rg`, or `grep`), `blink-cmp-dictionary` runs asynchronously and will not block other operations.
 
 **With Fallback Mode:**
-When using fallback mode (no external commands), the plugin performs **synchronous** filtering, which may cause noticeable delays, especially with large dictionaries.
+When using fallback mode (no external commands), the plugin performs **synchronous** filtering, which may cause noticeable delays **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands.
 
 **General Recommendations:**
 - Make sure the `min_keyword_length` is at least 2. If your dictionary files are very large,
