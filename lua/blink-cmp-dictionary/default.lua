@@ -13,7 +13,7 @@ local cached_pattern = nil
 --- @param iskeyword string # The iskeyword string (e.g., "@,48-57,_,192-255")
 --- @return table # An lpeg pattern matching word characters
 local function build_word_character_pattern(iskeyword)
-    local pattern = vim.lpeg.P(false) -- Start with a pattern that matches nothing
+    local char_pattern = vim.lpeg.P(false) -- Start with a pattern that matches nothing
     
     -- Split by comma
     for part in iskeyword:gmatch('[^,]+') do
@@ -21,31 +21,32 @@ local function build_word_character_pattern(iskeyword)
         
         if part == '@' then
             -- @ means all alphabetic characters (a-z, A-Z)
-            pattern = pattern + vim.lpeg.R("az", "AZ")
+            char_pattern = char_pattern + vim.lpeg.R("az", "AZ")
         elseif #part == 1 then
             -- Single character like "_" or "-"
             -- Check this before range patterns to avoid matching "-" as a range
-            pattern = pattern + vim.lpeg.P(part)
+            -- Note: Most special lpeg characters don't need escaping in P()
+            char_pattern = char_pattern + vim.lpeg.P(part)
         else
             -- Try to match as numeric range like "48-57" or "192-255"
-            local start_num, end_num = part:match('^(%d+)%-(%d+)$')
-            if start_num and end_num then
-                start_num = tonumber(start_num)
-                end_num = tonumber(end_num)
-                -- Validate range is within valid byte range (0-255)
+            local start_str, end_str = part:match('^(%d+)%-(%d+)$')
+            if start_str and end_str then
+                local start_num = tonumber(start_str)
+                local end_num = tonumber(end_str)
+                -- Validate range: must be numbers, within byte range (0-255), and properly ordered
                 if start_num and end_num and start_num >= 0 and end_num <= 255 and start_num <= end_num then
                     -- Convert numbers to characters
                     local start_char = string.char(start_num)
                     local end_char = string.char(end_num)
                     -- vim.lpeg.R takes two separate arguments, not concatenated
-                    pattern = pattern + vim.lpeg.R(start_char, end_char)
+                    char_pattern = char_pattern + vim.lpeg.R(start_char, end_char)
                 end
             else
                 -- Try to match as character range like "a-z" or "A-Z"
                 local start_char, end_char = part:match('^(.)%-(.)$')
                 if start_char and end_char then
                     -- vim.lpeg.R takes two separate arguments, not concatenated
-                    pattern = pattern + vim.lpeg.R(start_char, end_char)
+                    char_pattern = char_pattern + vim.lpeg.R(start_char, end_char)
                 end
             end
         end
@@ -53,7 +54,7 @@ local function build_word_character_pattern(iskeyword)
         -- are not commonly used and can be added if needed
     end
     
-    return pattern
+    return char_pattern
 end
 
 --- Build the word_pattern based on current iskeyword setting
