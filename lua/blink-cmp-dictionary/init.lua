@@ -44,9 +44,9 @@ end
 --- @param feature blink-cmp-dictionary.Options
 --- @param result string[]
 --- @param prefix string
+--- @param max_items number
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
-local function assemble_completion_items_from_output(feature, result, prefix)
-    local max_items = feature.max_items or 100
+local function assemble_completion_items_from_output(feature, result, prefix, max_items)
     -- First, call separate_output to parse the output
     local separated_items = feature.separate_output(table.concat(result, '\n'))
     -- Then, apply fuzzy scoring and limit to max_items
@@ -262,13 +262,14 @@ function DictionarySource:get_completions(context, callback)
         fallback.load_dictionaries(files)
         
         -- Perform synchronous search using fallback
-        local max_items = dictionary_source_config.max_items or 100
+        local max_items = source_provider_config.max_items or 100
         local results = fallback.search(prefix, max_items)
         if utils.truthy(results) then
             local match_list = assemble_completion_items_from_output(
                 dictionary_source_config,
                 results,
-                prefix)
+                prefix,
+                max_items)
             vim.iter(match_list):each(function(match)
                 process_completion_item(match, context, items)
             end)
@@ -317,10 +318,12 @@ function DictionarySource:get_completions(context, callback)
                         table.insert(lines, line)
                     end
                     
+                    local max_items = source_provider_config.max_items or 100
                     local match_list = assemble_completion_items_from_output(
                         dictionary_source_config,
                         lines,
-                        prefix)
+                        prefix,
+                        max_items)
                     vim.iter(match_list):each(function(match)
                         process_completion_item(match, context, items)
                     end)

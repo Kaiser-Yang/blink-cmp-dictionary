@@ -13,7 +13,6 @@
 --- @field get_prefix? string|fun(context: blink.cmp.Context): string
 --- @field dictionary_files? string[]|fun(): string[]
 --- @field dictionary_directories? string[]|fun(): string[]
---- @field max_items? number # Maximum number of items to return from search (default: 100)
 --- @field capitalize_first? boolean|fun(context: blink.cmp.Context, match: blink-cmp-dictionary.DictionaryCompletionItem): boolean
 --- @field capitalize_whole_word? boolean|fun(context: blink.cmp.Context, match: blink-cmp-dictionary.DictionaryCompletionItem): boolean
 --- @field decapitalize_first? boolean|fun(context: blink.cmp.Context, match: blink-cmp-dictionary.DictionaryCompletionItem): boolean

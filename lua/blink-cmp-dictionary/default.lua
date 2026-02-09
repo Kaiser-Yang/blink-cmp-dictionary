@@ -143,8 +143,6 @@ return {
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
-    -- Maximum number of items to return from search (default: 100)
-    max_items = 100,
     -- Whether or not to capitalize the first letter of the word
     capitalize_first = default_capitalize_first,
     -- Whether or not to capitalize the whole word

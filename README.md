@@ -59,9 +59,6 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     -- Can be set to 0 in most cases.
                     -- If you experience performance issues, try setting it to 2.
                     min_keyword_length = 0,
-                    opts = {
-                        -- options for blink-cmp-dictionary
-                    }
                 }
             },
         }
@@ -90,7 +87,6 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     opts = {
                         -- Force fallback mode
                         get_command = '',
-                        -- options for blink-cmp-dictionary
                     }
                 }
             },
@@ -121,9 +117,6 @@ dictionary_files = nil,
 -- All .txt files in these directories will be treated as dictionary files
 -- example: { vim.fn.expand('~/.config/nvim/dictionary') }
 dictionary_directories = nil,
--- Maximum number of items to return from search (default: 100)
--- Items are scored using fuzzy matching and the top N are returned
-max_items = 100,
 ```
 
 > [!NOTE]
@@ -394,7 +387,7 @@ When using fallback mode (no external commands), the plugin performs **synchrono
 
 **General Recommendations:**
 - The `min_keyword_length` parameter can be set to 0 in most cases. If you experience performance issues with large dictionaries, try setting it to 2.
-- You can configure the maximum number of completion items returned from the search using the `max_items` option (default: 100). This applies fuzzy scoring to all matches and returns the top-scoring results.
+- You can configure the maximum number of completion items returned from the search using the `max_items` option at the provider level (default: 100). This applies fuzzy scoring to all matches and returns the top-scoring results.
 
 ```lua
 opts = {
@@ -404,14 +397,9 @@ opts = {
                 module = 'blink-cmp-dictionary',
                 name = 'Dict',
                 min_keyword_length = 0,  -- Set to 2 if performance issues occur
-                opts = {
-                    -- Maximum items from dictionary search (default: 100)
-                    -- This controls how many items the dictionary source returns after scoring
-                    max_items = 100,
-                },
-                -- Maximum items shown in blink.cmp completion menu (applies to all sources)
-                -- This is a blink.cmp setting, not specific to the dictionary source
-                max_items = 8,
+                -- Maximum items from dictionary search (default: 100)
+                -- This controls how many items the dictionary source returns after scoring
+                max_items = 100,
             }
         },
     }
