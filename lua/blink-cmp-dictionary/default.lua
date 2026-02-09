@@ -1,19 +1,54 @@
 local log = require('blink-cmp-dictionary.log')
 log.setup({ title = 'blink-cmp-dictionary' })
 local utils = require('blink-cmp-dictionary.utils')
-local word_pattern
-do
-    -- Only support utf-8
-    -- Align with nvim's iskeyword option (default: @,48-57,_,192-255)
-    -- This includes: a-z, A-Z, 0-9, _, and UTF-8 characters (192-255)
-    local word_character = vim.lpeg.R("az", "AZ", "09", "\192\255") + vim.lpeg.P("_")
 
+--- Parse vim's iskeyword option and build an lpeg pattern
+--- @param iskeyword string # The iskeyword string (e.g., "@,48-57,_,192-255")
+--- @return table # An lpeg pattern matching word characters
+local function build_word_character_pattern(iskeyword)
+    local pattern = vim.lpeg.P(false) -- Start with a pattern that matches nothing
+    
+    -- Split by comma
+    for part in iskeyword:gmatch('[^,]+') do
+        part = vim.trim(part)
+        
+        if part == '@' then
+            -- @ means all alphabetic characters (a-z, A-Z)
+            pattern = pattern + vim.lpeg.R("az", "AZ")
+        elseif part:match('^%d+%-%d+$') then
+            -- Numeric range like "48-57" or "192-255"
+            local start_num, end_num = part:match('^(%d+)%-(%d+)$')
+            start_num = tonumber(start_num)
+            end_num = tonumber(end_num)
+            
+            if start_num and end_num then
+                -- Convert numbers to characters
+                local start_char = string.char(start_num)
+                local end_char = string.char(end_num)
+                pattern = pattern + vim.lpeg.R(start_char .. end_char)
+            end
+        elseif #part == 1 then
+            -- Single character like "_"
+            pattern = pattern + vim.lpeg.P(part)
+        end
+        -- Note: Negative ranges (e.g., "^,") and other advanced iskeyword features
+        -- are not commonly used and can be added if needed
+    end
+    
+    return pattern
+end
+
+--- Build the word_pattern based on current iskeyword setting
+--- @return table # An lpeg pattern for matching words
+local function build_word_pattern()
+    local iskeyword = vim.bo.iskeyword or '@,48-57,_,192-255'
+    local word_character = build_word_character_pattern(iskeyword)
     local non_word_character = vim.lpeg.P(1) - word_character
-
+    
     -- A word can start with any number of non-word characters, followed by
     -- at least one word character, and then any number of non-word characters.
     -- The word part is captured.
-    word_pattern = vim.lpeg.Ct(
+    return vim.lpeg.Ct(
         (
             non_word_character ^ 0
             * vim.lpeg.C(word_character ^ 1)
@@ -25,6 +60,8 @@ end
 --- @param prefix string # The prefix to be matched
 --- @return string
 local function match_prefix(prefix)
+    -- Build word_pattern dynamically based on current iskeyword setting
+    local word_pattern = build_word_pattern()
     local match_res = vim.lpeg.match(word_pattern, prefix)
     if not match_res or #match_res == 0 then
         return ''
