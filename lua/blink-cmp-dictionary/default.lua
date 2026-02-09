@@ -34,15 +34,17 @@ local function build_word_character_pattern(iskeyword)
                 local end_num = tonumber(end_str)
                 -- Validate range: must be numbers, within byte range (0-255), and properly ordered
                 if start_num and end_num and start_num >= 0 and end_num <= 255 and start_num <= end_num then
-                    -- Convert numbers to characters
+                    -- Convert numbers to characters and create range string (e.g., "09" for digits)
                     local start_char = string.char(start_num)
                     local end_char = string.char(end_num)
+                    -- vim.lpeg.R expects each range as a 2-character string
                     char_pattern = char_pattern + vim.lpeg.R(start_char .. end_char)
                 end
             else
                 -- Try to match as character range like "a-z" or "A-Z"
                 local start_char, end_char = part:match('^(.)%-(.)$')
                 if start_char and end_char then
+                    -- vim.lpeg.R expects each range as a 2-character string
                     char_pattern = char_pattern + vim.lpeg.R(start_char .. end_char)
                 end
             end
