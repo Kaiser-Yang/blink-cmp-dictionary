@@ -1,14 +1,30 @@
-# blink-cmp-dictionary
+# 📚 blink-cmp-dictionary
+
+<div align="center">
+
+### 🎉 Version 3.0 - Zero Dependencies Required! 🎉
+
+**English** | [中文文档](./README-zh.md)
+
+[![Latest Release](https://img.shields.io/github/v/release/Kaiser-Yang/blink-cmp-dictionary)](https://github.com/Kaiser-Yang/blink-cmp-dictionary/releases)
+
+</div>
+
+---
+
+> 🚀 **New in v3.0:** Enjoy **blazingly fast** dictionary completion with **ZERO external dependencies**! Just provide a dictionary file and you're ready to go! ⚡
 
 Dictionary source for [blink.cmp](https://github.com/Saghen/blink.cmp)
 completion plugin. This makes it possible to query a dictionary
 without leaving the editor.
 
+## ✨ Features
+
 Fuzzy finding is supported by default:
 
 ![blink-cmp-dictionary fuzzy finding a word](./images/demo-fuzzy.png)
 
-Definitions of words are also supported (use `wn` by default):
+📖 Definitions of words are also supported (use `wn` by default):
 
 ![blink-cmp-dictionary documents a word](./images/demo-doc.png)
 
@@ -17,29 +33,51 @@ Definitions of words are also supported (use `wn` by default):
 > If you don't know how to install `wn`, you may google the keyword
 > `how to install WordNet on ...`.
 
-## Requirements
+## 🎯 Requirements
 
-For the default configuration, you must have at least one of `fzf`, `rg`, or `grep` to search in the dictionary file. `wn` is optional and provides definitions of words. You can use `checkhealth blink-cmp-dictionary` to check if the requirements are met.
+> 💎 **v3.0 Highlight:** The plugin now works **out of the box** with ZERO external dependencies! Just provide a dictionary file and enjoy lightning-fast fuzzy completion! ⚡
 
-### Fallback Mode
+**Optional external tools** (for enhanced performance):
+- `fzf`, `rg`, or `grep` - for even faster searching (optional)
+- `wn` (WordNet) - for word definitions (optional)
 
-If **none** of `fzf`, `rg`, or `grep` are available, the plugin will automatically fall back to a pure Lua implementation. In fallback mode:
+You can use `checkhealth blink-cmp-dictionary` to check if the optional tools are available.
 
-* **No external dependencies** are required
-* **Synchronous filtering** is performed, which may cause performance issues with large dictionaries
-* **Fuzzy matching** is supported (similar to `fzf`), with intelligent scoring based on match positions
-* Set `force_fallback = true` in configuration to force fallback mode (recommended over `get_command = ''`)
+### 🚀 Fallback Mode (Pure Lua - No Dependencies!)
 
-> [!WARNING]
-> Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words) **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands. For better performance, install at least one of `fzf`, `rg`, or `grep`.
+**Default Behavior:**
+By default, if `fzf` is **not found**, the plugin will **directly fall back** to a pure Lua implementation instead of trying `rg` or `grep`. This provides the best user experience with excellent performance.
 
-## Installation
+**🎁 Why Fallback Mode is Amazing:**
+* ✅ **Zero external dependencies** - Works everywhere!
+* ✅ **Blazing fast** - Almost no perceptible delay even with 90,000+ word dictionaries
+* ✅ **Full fuzzy matching** - Similar to `fzf`, with intelligent scoring
+* ✅ **Cross-platform** - Works on any system with Neovim
 
-Add the plugin to your packer managers, and make sure it is loaded before `blink.cmp`.
+**Disabling Fallback:**
+If you prefer to use `rg` or `grep` when `fzf` is not available, set `force_fallback = false` in your configuration:
 
-### `lazy.nvim`
+```lua
+opts = {
+    force_fallback = false,  -- Try rg/grep instead of fallback when fzf is not found
+}
+```
 
-**With external commands (recommended):**
+> [!NOTE]
+> 🎯 **Performance:** Testing with a 90,000 line dictionary file shows virtually no perceptible latency. The fallback mode is now a viable option even for large dictionaries!
+> 
+> 💬 If you encounter any performance issues with fallback mode, please [open an issue](https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues). We will work on implementing an asynchronous execution mode to resolve them.
+
+## 📦 Installation
+
+Add the plugin to your package manager, and make sure it is loaded before `blink.cmp`.
+
+> [!TIP]
+> 💡 **Recommended:** Use the default `force_fallback` configuration. The plugin will automatically use the pure Lua fallback only when `fzf` is not available, giving you the best performance in all scenarios!
+
+### 🔌 lazy.nvim
+
+**Recommended Setup (Zero Dependencies!):**
 
 ```lua
 {
@@ -56,8 +94,40 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                 dictionary = {
                     module = 'blink-cmp-dictionary',
                     name = 'Dict',
-                    -- Can be set to 0 in most cases.
-                    -- If you experience performance issues, try setting it to 2.
+                    min_keyword_length = 0,
+                    opts = {
+                        -- Optional: explicitly force fallback mode
+                        -- (By default, fallback is used when fzf is not found)
+                        force_fallback = true,
+                    }
+                }
+            },
+        }
+    }
+}
+```
+
+**With External Commands (Enhanced Performance):**
+
+```lua
+{
+    'saghen/blink.cmp',
+    dependencies = {
+        'Kaiser-Yang/blink-cmp-dictionary',
+        -- ... Other dependencies
+    },
+    opts = {
+        sources = {
+            -- Add 'dictionary' to the list
+            default = { 'dictionary', 'lsp', 'path', 'luasnip', 'buffer' },
+            providers = {
+                dictionary = {
+                    module = 'blink-cmp-dictionary',
+                    name = 'Dict',
+                    -- 💡 Performance impact of min_keyword_length:
+                    -- - In fallback mode: No impact on performance regardless of value
+                    -- - With fzf: Higher values may improve performance
+                    -- - With other commands (rg/grep): Higher values significantly improve performance
                     min_keyword_length = 0,
                     -- options for blink-cmp-dictionary
                     opts = {
@@ -71,40 +141,10 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
 }
 ```
 
-**Using fallback mode (no external dependencies):**
-
-```lua
-{
-    'saghen/blink.cmp',
-    dependencies = {
-        'Kaiser-Yang/blink-cmp-dictionary',
-        -- ... Other dependencies
-    },
-    opts = {
-        sources = {
-            -- Add 'dictionary' to the list
-            default = { 'dictionary', 'lsp', 'path', 'luasnip', 'buffer' },
-            providers = {
-                dictionary = {
-                    module = 'blink-cmp-dictionary',
-                    name = 'Dict',
-                    min_keyword_length = 0,
-                    opts = {
-                        -- Force fallback mode (recommended over setting get_command = '')
-                        force_fallback = true,
-                        -- options for blink-cmp-dictionary
-                    }
-                }
-            },
-        }
-    }
-}
-```
-
-## Quick Start
+## 🚀 Quick Start
 
 > [!NOTE]
-> If you don't have a dictionary file, see [english-words](https://github.com/dwyl/english-words).
+> 📖 If you don't have a dictionary file, see [english-words](https://github.com/dwyl/english-words).
 
 By default, your dictionary files must be like this content (every line is a word):
 
@@ -113,7 +153,7 @@ word1
 word2
 ```
 
-If you dictionary files are like these. You just need to specify the dictionary files'
+If your dictionary files are like these, you just need to specify the dictionary files'
 path in the configuration:
 
 ```lua
@@ -127,18 +167,18 @@ dictionary_directories = nil,
 
 > [!NOTE]
 >
-> All the dictionary files in `dictionary_files` and `dictionary_directories` will be
+> ⚠️ All the dictionary files in `dictionary_files` and `dictionary_directories` will be
 > concatenated together. Make sure the files are different, otherwise there will be
 > duplicate words in the completion list. If your dictionary files are not separated by lines,
 > see [How to customize completion items](#how-to-customize-completion-items)
 
-## Default Configuration
+## ⚙️ Default Configuration
 
 See [default.lua](./lua/blink-cmp-dictionary/default.lua).
 
-## Q&A
+## 💡 Q&A
 
-### What is the actual behavior of capitalization?
+### 🔤 What is the actual behavior of capitalization?
 
 As for `v2.0.0`, there are four new options:
 
@@ -173,7 +213,7 @@ dictionary files is lowercase, and the first two letters of match prefix are upp
 input `WO`, the completion item will be `WORD`. If you input `wo`, `wO`, `woR`, or `wOr`, the
 completion item will be `word`.
 
-### How to use different dictionaries for different filetypes?
+### 📁 How to use different dictionaries for different filetypes?
 
 You just need use a function to determine the dictionary files for different file types,
 for example:
@@ -187,7 +227,7 @@ dictionary_files = function()
 end,
 ```
 
-### Why use `fzf` as default? `blink.cmp` already supports fuzzy finding
+### 🔍 Why use `fzf` as default? `blink.cmp` already supports fuzzy finding
 
 In `blink-cmp-dictionary` we use `get_prefix` to determine which part to search. If we do not use
 `fzf`, for example we use `rg` or `grep`, and we set `min_keyword_length=3`. After inputting 'dic',
@@ -199,7 +239,7 @@ when inputting 'dit'. But if we use `fzf`, `fzf` will return 'dictionary' when i
 Note that `grep` is provided as a last resort fallback when neither `fzf` nor `rg` are available,
 but it will not provide the same level of fuzzy matching as `fzf`.
 
-### How to customize completion items
+### 🎨 How to customize completion items
 
 By default, `blink-cmp-dictionary` treat every line in the dictionary files as a completion item.
 You can update this by use `separate_output` in the configuration:
@@ -251,24 +291,39 @@ get_documentation = function(item)
 end,
 ```
 
-### How to customize the command
+### 🛠️ How to customize the command
 
-By default, `blink-cmp-dictionary` will read dictionary files using native Neovim async file I/O and pipe them to a search tool (`fzf`, `rg`, or `grep` in order of preference). 
+By default, `blink-cmp-dictionary` will read dictionary files using native Neovim async file I/O and pipe them to a search tool. 
 
-**Automatic Fallback:**
-If none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
-- Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
-- May have **performance issues** with large dictionaries **only during the first load or when dictionary files are dynamically changed**. After the initial load, it provides consistent performance similar to external commands.
+**Default Behavior:**
+- If `fzf` is found → Use `fzf` for fuzzy searching
+- If `fzf` is **not** found → **Directly fall back to pure Lua implementation**
+- This provides excellent performance without requiring external tools
 
-**Manual Fallback:**
-You can force fallback mode by setting `force_fallback = true` (recommended):
+**Disable Fallback (use rg/grep when fzf not found):**
+If you prefer to try `rg` or `grep` when `fzf` is not available:
 
 ```lua
 opts = {
-    force_fallback = true,
+    force_fallback = false,  -- Try rg/grep instead of direct fallback
     -- Other options for blink-cmp-dictionary
 }
 ```
+
+**Force Fallback Mode:**
+You can force fallback mode even when `fzf` is available:
+
+```lua
+opts = {
+    force_fallback = true,   -- Always use pure Lua implementation
+    -- Other options for blink-cmp-dictionary
+}
+```
+
+**Fallback Mode Performance:**
+- Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
+- Has **excellent performance** even with large dictionaries (tested with 90,000 line files showing virtually no perceptible latency)
+- If you encounter performance issues, please [open an issue](https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues) - we can implement async execution
 
 **Custom Command:**
 You may configure a new command which supports reading from files directly, for example, `rg`:
@@ -310,7 +365,7 @@ get_command_args = function(prefix, _)
 end,
 ```
 
-### How to customize the highlight
+### 🎨 How to customize the highlight
 
 Customize the `BlinkCmpKindDict` to customize the highlight for kind icon, here is an example:
 
@@ -318,7 +373,7 @@ Customize the `BlinkCmpKindDict` to customize the highlight for kind icon, here 
 vim.api.nvim_set_hl(0, 'BlinkCmpKindDict', { default = false, fg = '#a6e3a1' })
 ```
 
-### How to enable this plugin for comment blocks or specific file types only?
+### 🎯 How to enable this plugin for comment blocks or specific file types only?
 
 Update the `default` of `blink.cmp`:
 
@@ -383,17 +438,31 @@ opts = {
 }
 ```
 
-## Performance
+## ⚡ Performance
+
+**Default Mode:**
+- If `fzf` is found: Uses `fzf` (asynchronous, no blocking)
+- If `fzf` is **not** found: Uses **fallback mode** (synchronous, but excellent performance) ✨
 
 **With External Commands:**
 When using external commands (`fzf`, `rg`, or `grep`), `blink-cmp-dictionary` runs asynchronously and will not block other operations.
 
-**With Fallback Mode:**
-When using fallback mode (no external commands), the plugin performs **synchronous** filtering, which may cause noticeable delays **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands.
+**With Fallback Mode (Default when fzf not found):**
+When using fallback mode (no external commands), the plugin performs **synchronous** filtering with **excellent performance**. Testing with a 90,000 line dictionary file shows virtually no perceptible latency. Performance issues are now almost non-existent, making fallback mode a viable option even for large dictionaries! 🚀
 
-**General Recommendations:**
-- The `min_keyword_length` parameter can be set to 0 in most cases. If you experience performance issues with large dictionaries, try setting it to 2.
-- You can configure the maximum number of completion items using the `max_items` option at the provider level. The dictionary source will inherit this value from blink.cmp (default: 100). This applies fuzzy scoring to all matches and returns the top-scoring results.
+> [!TIP]
+> 💬 If you encounter any performance issues with fallback mode, please [open an issue](https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues). We will implement an asynchronous execution mode to resolve them.
+
+**Performance Tuning:**
+
+- **`min_keyword_length`**: 
+  - In **fallback mode**: No impact on performance regardless of value ✅
+  - With **fzf**: Higher values may improve performance
+  - With **other commands** (rg/grep): Higher values significantly improve performance
+
+- **`max_items`**: Smaller values result in better performance across all modes. This is because blink.cmp's fuzzy matching (which happens after dictionary results are returned) processes the items - more items require more processing time downstream.
+
+**Example Configuration:**
 
 ```lua
 opts = {
@@ -402,8 +471,8 @@ opts = {
             dictionary = {
                 module = 'blink-cmp-dictionary',
                 name = 'Dict',
-                min_keyword_length = 0,  -- Set to 2 if performance issues occur
-                -- Add this and change the value to your own preference
+                min_keyword_length = 0,  -- Adjust based on your search command
+                -- Smaller values improve performance universally
                 max_items = 8, -- blink-cmp-dictionary will inherit this, the default is 100
             }
         },
@@ -411,20 +480,30 @@ opts = {
 }
 ```
 
-## Version Introduction
+## 📌 Version Introduction
 
 The release versions are something like `major.minor.patch`. When one of these numbers is increased:
 
-* `patch`: bugs are fixed or docs are added. This will not break the compatibility.
-* `minor`: compatible features are added. This may cause some configurations `deprecated`, but
+* `patch`: 🐛 bugs are fixed or docs are added. This will not break the compatibility.
+* `minor`: ✨ compatible features are added. This may cause some configurations `deprecated`, but
 not break the compatibility.
-* `major`: incompatible features are added. All the `deprecated` configurations will be removed.
+* `major`: 🚀 incompatible features are added. All the `deprecated` configurations will be removed.
 This will break the compatibility.
 
-## Acknowledgment
+## 🙏 Acknowledgment
 
 Nice and fast completion plugin: [blink.cmp](https://github.com/Saghen/blink.cmp).
 
 Inspired by [cmp-dictionary](https://github.com/uga-rosa/cmp-dictionary).
 
 Learned how to write a source from [blink-ripgrep.nvim](https://github.com/mikavilpas/blink-ripgrep.nvim).
+
+---
+
+<div align="center">
+
+**⭐ Star this repo if you find it useful! ⭐**
+
+Made with ❤️ by the community
+
+</div>

@@ -1,31 +1,6 @@
 local log = require('blink-cmp-dictionary.log')
 log.setup({ title = 'blink-cmp-dictionary' })
 local utils = require('blink-cmp-dictionary.utils')
-local word_pattern
-do
-    -- Only support utf-8
-    local word_character = vim.lpeg.R("az", "AZ", "09", "\128\255") + vim.lpeg.P("_") + vim.lpeg.P("-")
-
-    local non_word_character = vim.lpeg.P(1) - word_character
-
-    -- A word can start with any number of non-word characters, followed by
-    -- at least one word character, and then any number of non-word characters.
-    -- The word part is captured.
-    word_pattern = vim.lpeg.Ct(
-        (
-            non_word_character ^ 0
-            * vim.lpeg.C(word_character ^ 1)
-            * non_word_character ^ 0
-        ) ^ 0
-    )
-end
-
---- @param prefix string # The prefix to be matched
---- @return string
-local function match_prefix(prefix)
-    local match_res = vim.lpeg.match(word_pattern, prefix)
-    return match_res and match_res[#match_res] or ''
-end
 
 local function default_get_command()
     -- Check for available search tools
@@ -121,7 +96,7 @@ local function default_get_documentation(item)
 end
 
 local function default_get_prefix(context)
-    return match_prefix(context.line:sub(1, context.cursor[2]))
+    return context.get_keyword()
 end
 
 local function default_capitalize_first(context, match)
@@ -142,8 +117,8 @@ return {
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
-    -- Force using fallback mode instead of external commands (default: false)
-    force_fallback = false,
+    -- Force using fallback mode instead of external commands (default: vim.fn.executable('fzf') == 0)
+    force_fallback = vim.fn.executable('fzf') == 0,
     -- Whether or not to capitalize the first letter of the word
     capitalize_first = default_capitalize_first,
     -- Whether or not to capitalize the whole word
