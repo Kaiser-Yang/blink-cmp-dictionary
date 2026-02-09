@@ -6,11 +6,12 @@ local log = require('blink-cmp-dictionary.log')
 log.setup({ title = 'blink-cmp-dictionary' })
 local fallback = require('blink-cmp-dictionary.fallback')
 
--- Only load plenary.job if available (not needed for fallback mode)
-local has_plenary, Job = pcall(require, 'plenary.job')
-if not has_plenary then
-    Job = nil
-end
+-- No longer need plenary.job - using native vim.system instead
+
+-- Cache for individual dictionary file contents
+-- Key: file path, Value: { content = string } or { loading = true, pending_callbacks = {callbacks} }
+local file_cache = {}
+local uv = vim.uv or vim.loop
 
 --- @type blink.cmp.Source
 --- @diagnostic disable-next-line: missing-fields
@@ -19,14 +20,6 @@ local DictionarySource = {}
 local dictionary_source_config
 --- @type blink.cmp.SourceProviderConfig
 local source_provider_config
-local function create_job_from_documentation_command(documentation_command)
-    ---@diagnostic disable-next-line: missing-fields
-    return Job:new({
-        command = utils.get_option(documentation_command.get_command),
-        args = utils.get_option(documentation_command.get_command_args),
-    })
-end
-
 --- @param opts blink-cmp-dictionary.Options
 function DictionarySource.new(opts, config)
     local self = setmetatable({}, { __index = DictionarySource })
@@ -84,6 +77,103 @@ local function get_all_dictionary_files()
         end
     end
     return res
+end
+
+--- Read a single file asynchronously using libuv with caching
+--- @param filepath string
+--- @param callback function(string|nil, string|nil) Called with (content, error)
+local function read_file_async(filepath, callback)
+    -- Check if already cached
+    if file_cache[filepath] and file_cache[filepath].content then
+        callback(file_cache[filepath].content, nil)
+        return
+    end
+    
+    -- Check if already loading
+    if file_cache[filepath] and file_cache[filepath].loading then
+        -- Add callback to pending list
+        table.insert(file_cache[filepath].pending_callbacks, callback)
+        return
+    end
+    
+    -- Mark as loading and add the initial callback to pending list
+    file_cache[filepath] = { loading = true, pending_callbacks = { callback } }
+    
+    -- Helper to handle errors for this specific filepath
+    local function handle_error(error_msg)
+        local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
+        file_cache[filepath] = nil
+        vim.schedule(function()
+            for _, cb in ipairs(pending) do
+                cb(nil, error_msg)
+            end
+        end)
+    end
+    
+    uv.fs_open(filepath, 'r', 438, function(err_open, fd)
+        if err_open or not fd then
+            handle_error(err_open or 'Failed to open file')
+            return
+        end
+        
+        uv.fs_fstat(fd, function(err_stat, stat)
+            if err_stat or not stat then
+                uv.fs_close(fd, function() end)
+                handle_error(err_stat or 'Failed to stat file')
+                return
+            end
+            
+            uv.fs_read(fd, stat.size, 0, function(err_read, data)
+                uv.fs_close(fd, function() end)
+                
+                if err_read then
+                    handle_error(err_read)
+                else
+                    local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
+                    file_cache[filepath] = { content = data }
+                    vim.schedule(function()
+                        for _, cb in ipairs(pending) do
+                            cb(data, nil)
+                        end
+                    end)
+                end
+            end)
+        end)
+    end)
+end
+
+--- Read dictionary files asynchronously and concatenate the content
+--- @param files string[]
+--- @param callback function(string|nil) Called with content or nil on error
+local function read_dictionary_files_async(files, callback)
+    if not files or #files == 0 then
+        callback(nil)
+        return
+    end
+    
+    -- Read all files asynchronously (each file uses per-file caching)
+    local content_parts = {}
+    local remaining = #files
+    
+    for i, filepath in ipairs(files) do
+        read_file_async(filepath, function(content, err)
+            -- Treat errors as empty content and continue
+            content_parts[i] = (not err and content) or ''
+            
+            remaining = remaining - 1
+            
+            if remaining == 0 then
+                -- All files processed (some may have failed)
+                local full_content = table.concat(content_parts, '\n')
+                -- Only return nil if content is empty or whitespace only
+                if full_content == '' or full_content:match('^%s*$') then
+                    callback(nil)
+                else
+                    callback(full_content)
+                end
+            end
+        end)
+    end
 end
 
 --- Helper function to process completion items with capitalization
@@ -179,52 +269,96 @@ function DictionarySource:get_completions(context, callback)
     end
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix, cmd)
     
-    -- Check if plenary is available when not in fallback mode
-    if not Job then
-        log.error('plenary.nvim is required when using external commands. Please install it or set get_command to empty string to use fallback mode.')
-        callback()
-        return cancel_fun
-    end
-    
-    local cat_writer = nil
+    local cancel_fun_ref = { fn = nil }
     local files = get_all_dictionary_files()
-    if utils.truthy(files) then
-        ---@diagnostic disable-next-line: missing-fields
-        cat_writer = Job:new({
-            command = 'cat',
-            args = files,
-        })
-    end
-    ---@diagnostic disable-next-line: missing-fields
-    local job = Job:new({
-        command = cmd,
-        args = cmd_args,
-        on_exit = function(j, code, signal)
-            if signal == 9 then
-                -- shutdown mannually
-                -- do not handle the result
+    
+    -- Function to run the search command
+    local function run_search_command(input_data)
+        local obj = { cancelled = false }
+        
+        -- Build command with args
+        local full_cmd = { cmd }
+        for _, arg in ipairs(cmd_args) do
+            table.insert(full_cmd, arg)
+        end
+        
+        vim.system(full_cmd, {
+            text = true,
+            stdin = input_data,
+        }, function(result)
+            if obj.cancelled then
                 return
             end
-            if code ~= 0 or utils.truthy(j:stderr_result()) then
-                if dictionary_source_config.on_error(code, table.concat(j:stderr_result(), '\n')) then
+            
+            vim.schedule(function()
+                if obj.cancelled then
                     return
                 end
+                
+                if result.code ~= 0 and result.stderr and result.stderr ~= '' then
+                    if dictionary_source_config.on_error(result.code, result.stderr) then
+                        return
+                    end
+                end
+                
+                local output = result.stdout or ''
+                if utils.truthy(output) then
+                    local lines = {}
+                    for line in output:gmatch("[^\r\n]+") do
+                        table.insert(lines, line)
+                    end
+                    
+                    local match_list = assemble_completion_items_from_output(
+                        dictionary_source_config,
+                        lines)
+                    vim.iter(match_list):each(function(match)
+                        process_completion_item(match, context, items)
+                    end)
+                end
+                
+                transformed_callback()
+            end)
+        end)
+        
+        cancel_fun_ref.fn = function()
+            obj.cancelled = true
+        end
+        
+        return obj
+    end
+    
+    -- If we have files, read them asynchronously
+    if utils.truthy(files) then
+        local read_obj = { cancelled = false }
+        
+        -- Set cancel_fun immediately to handle race conditions
+        cancel_fun = function()
+            read_obj.cancelled = true
+            if cancel_fun_ref.fn then
+                cancel_fun_ref.fn()
             end
-            local output = table.concat(j:result(), '\n')
-            if utils.truthy(output) then
-                local match_list = assemble_completion_items_from_output(
-                    dictionary_source_config,
-                    j:result())
-                vim.iter(match_list):each(function(match)
-                    process_completion_item(match, context, items)
+        end
+        
+        read_dictionary_files_async(files, function(content)
+            if read_obj.cancelled then
+                return
+            end
+            
+            if not content or content == '' then
+                vim.schedule(function()
+                    transformed_callback()
                 end)
+                return
             end
-        end,
-        writer = cat_writer,
-    })
-    job:after(vim.schedule_wrap(transformed_callback))
-    cancel_fun = function() job:shutdown(0, 9) end
-    job:start()
+            
+            -- Now run the search command with file content as stdin
+            run_search_command(content)
+        end)
+    else
+        -- No files, do not perform any operation
+        transformed_callback()
+    end
+    
     return cancel_fun
 end
 
@@ -243,31 +377,33 @@ function DictionarySource:resolve(item, callback)
         return
     end
     
-    -- Check if plenary is available for documentation resolution
-    if not Job then
-        log.warn('plenary.nvim is not available, documentation resolution is disabled')
-        item.documentation = nil
-        transformed_callback()
-        return
+    local cmd = utils.get_option(item.documentation.get_command)
+    local args = utils.get_option(item.documentation.get_command_args)
+    
+    -- Build full command
+    local full_cmd = { cmd }
+    for _, arg in ipairs(args) do
+        table.insert(full_cmd, arg)
     end
     
-    local job = create_job_from_documentation_command(item.documentation)
-    job:after(function(j, code, _)
-        if code ~= 0 or utils.truthy(j:stderr_result()) then
-            ---@diagnostic disable-next-line: undefined-field
-            if item.documentation.on_error(code, table.concat(j:stderr_result(), '\n')) then
-                return
+    vim.system(full_cmd, { text = true }, function(result)
+        vim.schedule(function()
+            if result.code ~= 0 and result.stderr and result.stderr ~= '' then
+                ---@diagnostic disable-next-line: undefined-field
+                if item.documentation.on_error(result.code, result.stderr) then
+                    return
+                end
             end
-        end
-        if utils.truthy(job:result()) then
-            ---@diagnostic disable-next-line: undefined-field
-            item.documentation = item.documentation.resolve_documentation(table.concat(job:result(), '\n'))
-        else
-            item.documentation = nil
-        end
-        vim.schedule(transformed_callback)
+            
+            if result.stdout and result.stdout ~= '' then
+                ---@diagnostic disable-next-line: undefined-field
+                item.documentation = item.documentation.resolve_documentation(result.stdout)
+            else
+                item.documentation = nil
+            end
+            transformed_callback()
+        end)
     end)
-    job:start()
 end
 
 return DictionarySource

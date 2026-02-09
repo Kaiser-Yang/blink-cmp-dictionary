@@ -19,19 +19,19 @@ Definitions of words are also supported (use `wn` by default):
 
 ## Requirements
 
-For the default configuration, you must have `cat` and at least one of `fzf`, `rg`, or `grep` to search in the dictionary file. `wn` is optional and provides definitions of words. You can use `checkhealth blink-cmp-dictionary` to check if the requirements are met.
+For the default configuration, you must have at least one of `fzf`, `rg`, or `grep` to search in the dictionary file. `wn` is optional and provides definitions of words. You can use `checkhealth blink-cmp-dictionary` to check if the requirements are met.
 
 ### Fallback Mode
 
-If `cat` is not available, or if `cat` is available but **none** of `fzf`, `rg`, or `grep` are available, the plugin will automatically fall back to a pure Lua implementation. In fallback mode:
+If **none** of `fzf`, `rg`, or `grep` are available, the plugin will automatically fall back to a pure Lua implementation. In fallback mode:
 
-* **No external dependencies** are required (including `plenary.nvim`)
+* **No external dependencies** are required
 * **Synchronous filtering** is performed, which may cause performance issues with large dictionaries
 * **Fuzzy matching** is supported (similar to `fzf`), with intelligent scoring based on match positions
 * Set `get_command = ''` (empty string) in configuration to force fallback mode
 
 > [!WARNING]
-> Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words) **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands. For better performance, install `cat` and at least one of `fzf`, `rg`, or `grep`.
+> Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words) **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands. For better performance, install at least one of `fzf`, `rg`, or `grep`.
 
 ## Installation
 
@@ -45,10 +45,7 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
 {
     'saghen/blink.cmp',
     dependencies = {
-        {
-            'Kaiser-Yang/blink-cmp-dictionary',
-            dependencies = { 'nvim-lua/plenary.nvim' }
-        }
+        'Kaiser-Yang/blink-cmp-dictionary',
         -- ... Other dependencies
     },
     opts = {
@@ -78,10 +75,7 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
 {
     'saghen/blink.cmp',
     dependencies = {
-        {
-            'Kaiser-Yang/blink-cmp-dictionary',
-            -- No plenary.nvim dependency needed in fallback mode
-        }
+        'Kaiser-Yang/blink-cmp-dictionary',
         -- ... Other dependencies
     },
     opts = {
@@ -130,7 +124,7 @@ dictionary_directories = nil,
 > [!NOTE]
 >
 > All the dictionary files in `dictionary_files` and `dictionary_directories` will be
-> concatenated by `cat` command. Make sure the files are different, otherwise there will be
+> concatenated together. Make sure the files are different, otherwise there will be
 > duplicate words in the completion list. If your dictionary files are not separated by lines,
 > see [How to customize completion items](#how-to-customize-completion-items)
 
@@ -255,11 +249,10 @@ end,
 
 ### How to customize the command
 
-By default, `blink-cmp-dictionary` will use `cat` to concatenate dictionary files and pipe them to a search tool (`fzf`, `rg`, or `grep` in order of preference). 
+By default, `blink-cmp-dictionary` will read dictionary files using native Neovim async file I/O and pipe them to a search tool (`fzf`, `rg`, or `grep` in order of preference). 
 
 **Automatic Fallback:**
-If `cat` is not available, or if `cat` is available but none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
-- Does **not** require `plenary.nvim`
+If none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
 - Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
 - May have **performance issues** with large dictionaries **only during the first load or when dictionary files are dynamically changed**. After the initial load, it provides consistent performance similar to external commands.
 
