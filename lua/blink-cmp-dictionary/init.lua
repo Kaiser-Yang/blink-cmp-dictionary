@@ -254,8 +254,9 @@ function DictionarySource:get_completions(context, callback)
     end
     local cmd = utils.get_option(dictionary_source_config.get_command)
     
-    -- Handle fallback mode when cmd is empty string
-    if not utils.truthy(cmd) then
+    -- Handle fallback mode: either forced or when cmd is not available
+    local force_fallback = dictionary_source_config.force_fallback or false
+    if force_fallback or not utils.truthy(cmd) then
         local files = get_all_dictionary_files()
         
         -- Load/refresh dictionaries (uses file-based caching internally)

@@ -28,7 +28,7 @@ If **none** of `fzf`, `rg`, or `grep` are available, the plugin will automatical
 * **No external dependencies** are required
 * **Synchronous filtering** is performed, which may cause performance issues with large dictionaries
 * **Fuzzy matching** is supported (similar to `fzf`), with intelligent scoring based on match positions
-* Set `get_command = ''` (empty string) in configuration to force fallback mode
+* Set `force_fallback = true` in configuration to force fallback mode (recommended over `get_command = ''`)
 
 > [!WARNING]
 > Fallback mode runs **synchronously** and may cause noticeable delays with large dictionary files (>100k words) **only during the first load or when dictionary files are dynamically changed**. After the initial load, fallback mode provides consistent performance similar to external commands. For better performance, install at least one of `fzf`, `rg`, or `grep`.
@@ -90,8 +90,8 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     name = 'Dict',
                     min_keyword_length = 0,
                     opts = {
-                        -- Force fallback mode
-                        get_command = '',
+                        -- Force fallback mode (recommended over setting get_command = '')
+                        force_fallback = true,
                         -- options for blink-cmp-dictionary
                     }
                 }
@@ -261,11 +261,11 @@ If none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will
 - May have **performance issues** with large dictionaries **only during the first load or when dictionary files are dynamically changed**. After the initial load, it provides consistent performance similar to external commands.
 
 **Manual Fallback:**
-You can force fallback mode by setting `get_command` to an empty string:
+You can force fallback mode by setting `force_fallback = true` (recommended):
 
 ```lua
 opts = {
-    get_command = '',
+    force_fallback = true,
     -- Other options for blink-cmp-dictionary
 }
 ```
