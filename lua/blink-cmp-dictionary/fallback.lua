@@ -16,22 +16,33 @@ local trie_root = { children = {}, words = {} }
 --- @type table<string, string[]> # filepath -> list of words
 local file_word_lists = {}
 
---- Load a single dictionary file into cache
+--- Load a single dictionary file into cache using provided separate_output function
 --- @param filepath string
+--- @param separate_output function # Function to separate file content into words
 --- @return string[] # Words from this file
-local function load_file(filepath)
-    local words = {}
+local function load_file(filepath, separate_output)
     local f = io.open(filepath, 'r')
-    if f then
-        for line in f:lines() do
+    if not f then
+        return {}
+    end
+    
+    local content = f:read('*all')
+    f:close()
+    
+    -- Use separate_output to parse the file content
+    if separate_output then
+        return separate_output(content)
+    else
+        -- Fallback to default line-based parsing
+        local words = {}
+        for line in content:gmatch("[^\r\n]+") do
             local word = line:match("^%s*(.-)%s*$") -- trim whitespace
             if word and word ~= "" then
                 table.insert(words, word)
             end
         end
-        f:close()
+        return words
     end
-    return words
 end
 
 --- Insert a word into the trie for all its substrings
@@ -126,8 +137,9 @@ end
 
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
+--- @param separate_output? function # Function to separate file content into words
 --- @return boolean # Success status
-function M.load_dictionaries(files)
+function M.load_dictionaries(files, separate_output)
     if not files or #files == 0 then
         -- Remove all words from all files from trie
         for filepath, word_list in pairs(file_word_lists) do
@@ -158,7 +170,7 @@ function M.load_dictionaries(files)
     -- Load new files (don't re-insert already loaded files)
     for _, filepath in ipairs(files) do
         if not file_word_lists[filepath] then
-            local words = load_file(filepath)
+            local words = load_file(filepath, separate_output)
             file_word_lists[filepath] = words
             -- Add words to trie
             for _, word in ipairs(words) do

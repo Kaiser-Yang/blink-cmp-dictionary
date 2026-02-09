@@ -41,8 +41,9 @@ function DictionarySource.new(opts, config)
     return self
 end
 
+--- Assemble completion items from raw command output
 --- @param feature blink-cmp-dictionary.Options
---- @param result string
+--- @param result string # Raw output from external command
 --- @param prefix string
 --- @param max_items number
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
@@ -54,6 +55,26 @@ local function assemble_completion_items_from_output(feature, result, prefix, ma
     -- Finally, assemble completion items
     local items = {}
     for i, v in ipairs(top_items) do
+        items[i] = {
+            label = feature.get_label(v),
+            kind_name = feature.get_kind_name(v),
+            insert_text = feature.get_insert_text(v),
+            documentation = feature.get_documentation(v),
+        }
+    end
+    -- feature.configure_score_offset(items)
+    return items
+end
+
+--- Assemble completion items from already-separated words (fallback mode)
+--- @param feature blink-cmp-dictionary.Options
+--- @param words string[] # Already separated words from fallback search
+--- @return blink-cmp-dictionary.DictionaryCompletionItem[]
+local function assemble_completion_items_from_words(feature, words)
+    -- Words are already scored and limited by fallback.search
+    -- Just assemble completion items
+    local items = {}
+    for i, v in ipairs(words) do
         items[i] = {
             label = feature.get_label(v),
             kind_name = feature.get_kind_name(v),
@@ -260,7 +281,8 @@ function DictionarySource:get_completions(context, callback)
         local files = get_all_dictionary_files()
         
         -- Load/refresh dictionaries (uses file-based caching internally)
-        fallback.load_dictionaries(files)
+        -- Pass separate_output function to parse dictionary files
+        fallback.load_dictionaries(files, dictionary_source_config.separate_output)
         
         -- Perform synchronous search using fallback
         -- Check type: if it's a function or nil, use default of 100
@@ -271,11 +293,11 @@ function DictionarySource:get_completions(context, callback)
         end
         local results = fallback.search(prefix, max_items)
         if utils.truthy(results) then
-            local match_list = assemble_completion_items_from_output(
+            -- fallback.search already returns scored and limited words
+            -- No need to call separate_output again
+            local match_list = assemble_completion_items_from_words(
                 dictionary_source_config,
-                table.concat(results, '\n'),
-                prefix,
-                max_items)
+                results)
             vim.iter(match_list):each(function(match)
                 process_completion_item(match, context, items)
             end)
