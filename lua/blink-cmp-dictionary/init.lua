@@ -99,38 +99,32 @@ local function read_file_async(filepath, callback)
     -- Mark as loading and add the initial callback to pending list
     file_cache[filepath] = { loading = true, pending_callbacks = { callback } }
     
+    -- Helper to handle errors
+    local function handle_error(error_msg)
+        local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
+        file_cache[filepath] = nil
+        vim.schedule(function()
+            for _, cb in ipairs(pending) do
+                cb(nil, error_msg)
+            end
+        end)
+    end
+    
     uv.fs_open(filepath, 'r', 438, function(err_open, fd)
         if err_open or not fd then
-            -- Save pending callbacks before clearing cache
-            local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
-            file_cache[filepath] = nil
-            vim.schedule(function()
-                local error_msg = err_open or 'Failed to open file'
-                for _, cb in ipairs(pending) do
-                    cb(nil, error_msg)
-                end
-            end)
+            handle_error(err_open or 'Failed to open file')
             return
         end
         
         uv.fs_fstat(fd, function(err_stat, stat)
             if err_stat or not stat then
                 uv.fs_close(fd, function() end)
-                -- Save pending callbacks before clearing cache
-                local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
-                file_cache[filepath] = nil
-                vim.schedule(function()
-                    local error_msg = err_stat or 'Failed to stat file'
-                    for _, cb in ipairs(pending) do
-                        cb(nil, error_msg)
-                    end
-                end)
+                handle_error(err_stat or 'Failed to stat file')
                 return
             end
             
             uv.fs_read(fd, stat.size, 0, function(err_read, data)
                 uv.fs_close(fd, function() end)
-                -- Save pending callbacks before updating cache
                 local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
                 
                 if err_read then
@@ -165,7 +159,6 @@ local function read_dictionary_files_async(files, callback)
     -- Read all files asynchronously (each file uses per-file caching)
     local content_parts = {}
     local remaining = #files
-    local has_error = false
     local callback_invoked = false
     
     for i, filepath in ipairs(files) do
@@ -175,22 +168,24 @@ local function read_dictionary_files_async(files, callback)
             end
             
             if err then
-                if not has_error then
-                    has_error = true
-                    callback_invoked = true
-                    callback(nil)
-                end
-                return
+                -- Don't fail immediately, just skip this file and continue
+                content_parts[i] = ''
+            else
+                content_parts[i] = content or ''
             end
             
-            content_parts[i] = content or ''
             remaining = remaining - 1
             
-            if remaining == 0 and not has_error then
-                -- All files read successfully
+            if remaining == 0 then
+                -- All files processed (some may have failed)
                 callback_invoked = true
                 local full_content = table.concat(content_parts, '\n')
-                callback(full_content)
+                -- Only return nil if all files failed (empty content)
+                if full_content == '' or full_content:match('^[\n]*$') then
+                    callback(nil)
+                else
+                    callback(full_content)
+                end
             end
         end)
     end
