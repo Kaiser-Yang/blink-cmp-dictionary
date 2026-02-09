@@ -8,6 +8,11 @@ local fallback = require('blink-cmp-dictionary.fallback')
 
 -- No longer need plenary.job - using native vim.system instead
 
+-- Cache for dictionary file contents
+-- Key: comma-separated list of file paths, Value: { content = string, loading = boolean }
+local file_content_cache = {}
+local uv = vim.uv or vim.loop
+
 --- @type blink.cmp.Source
 --- @diagnostic disable-next-line: missing-fields
 local DictionarySource = {}
@@ -72,6 +77,112 @@ local function get_all_dictionary_files()
         end
     end
     return res
+end
+
+--- Read a single file asynchronously using libuv
+--- @param filepath string
+--- @param callback function(string|nil, string|nil) Called with (content, error)
+local function read_file_async(filepath, callback)
+    uv.fs_open(filepath, 'r', 438, function(err_open, fd)
+        if err_open or not fd then
+            callback(nil, err_open or 'Failed to open file')
+            return
+        end
+        
+        uv.fs_fstat(fd, function(err_stat, stat)
+            if err_stat or not stat then
+                uv.fs_close(fd, function() end)
+                callback(nil, err_stat or 'Failed to stat file')
+                return
+            end
+            
+            uv.fs_read(fd, stat.size, 0, function(err_read, data)
+                uv.fs_close(fd, function() end)
+                if err_read then
+                    callback(nil, err_read)
+                else
+                    callback(data, nil)
+                end
+            end)
+        end)
+    end)
+end
+
+--- Read dictionary files asynchronously and cache the content
+--- @param files string[]
+--- @param callback function(string|nil) Called with content or nil on error
+local function read_dictionary_files_async(files, callback)
+    if not files or #files == 0 then
+        callback(nil)
+        return
+    end
+    
+    -- Create a cache key from files
+    local cache_key = table.concat(files, ',')
+    
+    -- Check if already cached
+    if file_content_cache[cache_key] and file_content_cache[cache_key].content then
+        callback(file_content_cache[cache_key].content)
+        return
+    end
+    
+    -- Check if already loading
+    if file_content_cache[cache_key] and file_content_cache[cache_key].loading then
+        -- Add callback to pending list
+        if not file_content_cache[cache_key].pending_callbacks then
+            file_content_cache[cache_key].pending_callbacks = {}
+        end
+        table.insert(file_content_cache[cache_key].pending_callbacks, callback)
+        return
+    end
+    
+    -- Mark as loading
+    file_content_cache[cache_key] = { loading = true, pending_callbacks = {} }
+    
+    -- Read all files asynchronously
+    local content_parts = {}
+    local remaining = #files
+    local has_error = false
+    
+    for i, filepath in ipairs(files) do
+        read_file_async(filepath, function(content, err)
+            if has_error then
+                return
+            end
+            
+            if err then
+                has_error = true
+                file_content_cache[cache_key] = nil
+                vim.schedule(function()
+                    callback(nil)
+                    -- Call pending callbacks
+                    for _, cb in ipairs(file_content_cache[cache_key] and file_content_cache[cache_key].pending_callbacks or {}) do
+                        cb(nil)
+                    end
+                end)
+                return
+            end
+            
+            content_parts[i] = content or ''
+            remaining = remaining - 1
+            
+            if remaining == 0 then
+                -- All files read successfully
+                local full_content = table.concat(content_parts, '\n')
+                file_content_cache[cache_key] = { content = full_content, loading = false }
+                
+                vim.schedule(function()
+                    callback(full_content)
+                    -- Call pending callbacks
+                    if file_content_cache[cache_key] and file_content_cache[cache_key].pending_callbacks then
+                        for _, cb in ipairs(file_content_cache[cache_key].pending_callbacks) do
+                            cb(full_content)
+                        end
+                    end
+                end)
+            end
+        end)
+    end
 end
 
 --- Helper function to process completion items with capitalization
@@ -168,7 +279,6 @@ function DictionarySource:get_completions(context, callback)
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix, cmd)
     
     local cancel_fun_ref = { fn = nil }
-    local cat_output = nil
     local files = get_all_dictionary_files()
     
     -- Function to run the search command
@@ -226,42 +336,36 @@ function DictionarySource:get_completions(context, callback)
         return obj
     end
     
-    -- If we have files, first run cat to get the content
+    -- If we have files, read them asynchronously
     if utils.truthy(files) then
-        local cat_obj = { cancelled = false }
+        local read_obj = { cancelled = false }
         
         -- Set cancel_fun immediately to handle race conditions
         cancel_fun = function()
-            cat_obj.cancelled = true
+            read_obj.cancelled = true
             if cancel_fun_ref.fn then
                 cancel_fun_ref.fn()
             end
         end
         
-        vim.system({ 'cat', table.unpack(files) }, { text = true }, function(result)
-            if cat_obj.cancelled then
+        read_dictionary_files_async(files, function(content)
+            if read_obj.cancelled then
                 return
             end
             
-            if result.code ~= 0 then
+            if not content or content == '' then
                 vim.schedule(function()
                     transformed_callback()
                 end)
                 return
             end
             
-            cat_output = result.stdout
-            -- Now run the search command with cat output as stdin
-            run_search_command(cat_output)
+            -- Now run the search command with file content as stdin
+            run_search_command(content)
         end)
     else
-        -- No files, just run the command without stdin
-        run_search_command(nil)
-        cancel_fun = function()
-            if cancel_fun_ref.fn then
-                cancel_fun_ref.fn()
-            end
-        end
+        -- No files, do not perform any operation
+        transformed_callback()
     end
     
     return cancel_fun
