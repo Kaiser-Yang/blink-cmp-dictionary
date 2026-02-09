@@ -72,13 +72,11 @@ local function assemble_completion_items_from_output(feature, result, prefix, ma
     -- First, call separate_output to parse the output
     local separated_items = feature.separate_output(result)
     
-    -- Optimization: fzf output is already sorted, so just take first max_items
+    -- Optimization: fzf output is already sorted, or if we have fewer items than max_items
+    -- we don't need to do any scoring/selection
     local top_items
-    if cmd == 'fzf' and #separated_items > max_items then
-        top_items = {}
-        for i = 1, max_items do
-            top_items[i] = separated_items[i]
-        end
+    if cmd == 'fzf' or #separated_items <= max_items then
+        top_items = separated_items
     else
         -- Then, apply fuzzy scoring and limit to max_items
         top_items = utils.get_top_matches(separated_items, prefix, max_items)
@@ -277,6 +275,14 @@ function DictionarySource:get_completions(context, callback)
     end
     local cmd = utils.get_option(dictionary_source_config.get_command)
     
+    -- Parse max_items once for both fallback and external command modes
+    -- Check type: if it's a function or nil, use default of 100
+    -- We cannot call function types as we don't have the proper context
+    local max_items = 100
+    if type(source_provider_config.max_items) == 'number' then
+        max_items = source_provider_config.max_items
+    end
+    
     -- Handle fallback mode: either forced or when cmd is not available
     local force_fallback = dictionary_source_config.force_fallback or false
     if force_fallback or not utils.truthy(cmd) then
@@ -287,12 +293,6 @@ function DictionarySource:get_completions(context, callback)
         fallback.load_dictionaries(files, dictionary_source_config.separate_output)
         
         -- Perform synchronous search using fallback
-        -- Check type: if it's a function or nil, use default of 100
-        -- We cannot call function types as we don't have the proper context
-        local max_items = 100
-        if type(source_provider_config.max_items) == 'number' then
-            max_items = source_provider_config.max_items
-        end
         local results = fallback.search(prefix, max_items)
         if utils.truthy(results) then
             -- fallback.search already returns scored and limited words
@@ -343,12 +343,6 @@ function DictionarySource:get_completions(context, callback)
                 
                 local output = result.stdout or ''
                 if utils.truthy(output) then
-                    -- Check type: if it's a function or nil, use default of 100
-                    -- We cannot call function types as we don't have the proper context
-                    local max_items = 100
-                    if type(source_provider_config.max_items) == 'number' then
-                        max_items = source_provider_config.max_items
-                    end
                     local match_list = assemble_completion_items_from_output(
                         dictionary_source_config,
                         output,
