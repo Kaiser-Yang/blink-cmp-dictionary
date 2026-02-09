@@ -4,7 +4,9 @@ local utils = require('blink-cmp-dictionary.utils')
 local word_pattern
 do
     -- Only support utf-8
-    local word_character = vim.lpeg.R("az", "AZ", "09", "\128\255") + vim.lpeg.P("_") + vim.lpeg.P("-")
+    -- Align with nvim's iskeyword option (default: @,48-57,_,192-255)
+    -- This includes: a-z, A-Z, 0-9, _, and UTF-8 characters (192-255)
+    local word_character = vim.lpeg.R("az", "AZ", "09", "\192\255") + vim.lpeg.P("_")
 
     local non_word_character = vim.lpeg.P(1) - word_character
 
@@ -24,7 +26,17 @@ end
 --- @return string
 local function match_prefix(prefix)
     local match_res = vim.lpeg.match(word_pattern, prefix)
-    return match_res and match_res[#match_res] or ''
+    if not match_res or #match_res == 0 then
+        return ''
+    end
+    
+    local result = match_res[#match_res]
+    
+    -- Filter out common punctuation symbols at the beginning
+    -- This includes: . , ; : ! ? ' " ` ( ) [ ] { } < > / \ | @ # $ % ^ & * + = ~ -
+    local cleaned_result = result:gsub("^[%.,%%;:!?'\"%(%)%[%]{}%s<>/\\|@#$%%^&*+=~-]+", "")
+    
+    return cleaned_result
 end
 
 local function default_get_command()
@@ -142,8 +154,8 @@ return {
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
-    -- Force using fallback mode instead of external commands (default: false)
-    force_fallback = false,
+    -- Force using fallback mode instead of external commands (default: vim.fn.executable('fzf') == 0)
+    force_fallback = vim.fn.executable('fzf') == 0,
     -- Whether or not to capitalize the first letter of the word
     capitalize_first = default_capitalize_first,
     -- Whether or not to capitalize the whole word
