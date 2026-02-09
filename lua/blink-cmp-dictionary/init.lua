@@ -9,7 +9,7 @@ local fallback = require('blink-cmp-dictionary.fallback')
 -- No longer need plenary.job - using native vim.system instead
 
 -- Cache for dictionary file contents
--- Key: comma-separated list of file paths, Value: { content = string, loading = boolean }
+-- Key: vim.inspect(files), Value: { content = string } or { loading = true, pending_callbacks = {callbacks} }
 local file_content_cache = {}
 local uv = vim.uv or vim.loop
 
@@ -117,8 +117,8 @@ local function read_dictionary_files_async(files, callback)
         return
     end
     
-    -- Create a cache key from files
-    local cache_key = table.concat(files, ',')
+    -- Create a cache key from files using vim.inspect for unambiguous keys
+    local cache_key = vim.inspect(files)
     
     -- Check if already cached
     if file_content_cache[cache_key] and file_content_cache[cache_key].content then
@@ -129,15 +129,12 @@ local function read_dictionary_files_async(files, callback)
     -- Check if already loading
     if file_content_cache[cache_key] and file_content_cache[cache_key].loading then
         -- Add callback to pending list
-        if not file_content_cache[cache_key].pending_callbacks then
-            file_content_cache[cache_key].pending_callbacks = {}
-        end
         table.insert(file_content_cache[cache_key].pending_callbacks, callback)
         return
     end
     
-    -- Mark as loading
-    file_content_cache[cache_key] = { loading = true, pending_callbacks = {} }
+    -- Mark as loading and add the initial callback to pending list
+    file_content_cache[cache_key] = { loading = true, pending_callbacks = { callback } }
     
     -- Read all files asynchronously
     local content_parts = {}
@@ -152,11 +149,12 @@ local function read_dictionary_files_async(files, callback)
             
             if err then
                 has_error = true
+                -- Save pending callbacks before clearing cache
+                local pending = file_content_cache[cache_key] and file_content_cache[cache_key].pending_callbacks or {}
                 file_content_cache[cache_key] = nil
                 vim.schedule(function()
-                    callback(nil)
-                    -- Call pending callbacks
-                    for _, cb in ipairs(file_content_cache[cache_key] and file_content_cache[cache_key].pending_callbacks or {}) do
+                    -- Call all pending callbacks with nil
+                    for _, cb in ipairs(pending) do
                         cb(nil)
                     end
                 end)
@@ -169,15 +167,14 @@ local function read_dictionary_files_async(files, callback)
             if remaining == 0 then
                 -- All files read successfully
                 local full_content = table.concat(content_parts, '\n')
-                file_content_cache[cache_key] = { content = full_content, loading = false }
+                -- Save pending callbacks before updating cache
+                local pending = file_content_cache[cache_key] and file_content_cache[cache_key].pending_callbacks or {}
+                file_content_cache[cache_key] = { content = full_content }
                 
                 vim.schedule(function()
-                    callback(full_content)
-                    -- Call pending callbacks
-                    if file_content_cache[cache_key] and file_content_cache[cache_key].pending_callbacks then
-                        for _, cb in ipairs(file_content_cache[cache_key].pending_callbacks) do
-                            cb(full_content)
-                        end
+                    -- Call all pending callbacks with content
+                    for _, cb in ipairs(pending) do
+                        cb(full_content)
                     end
                 end)
             end
