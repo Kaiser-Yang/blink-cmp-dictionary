@@ -42,20 +42,6 @@ function DictionarySource.new(opts, config)
 end
 
 --- Assemble completion items from raw command output
---- @param feature blink-cmp-dictionary.Options
---- @param result string # Raw output from external command
---- @param prefix string
---- @param max_items number
---- @return blink-cmp-dictionary.DictionaryCompletionItem[]
-local function assemble_completion_items_from_output(feature, result, prefix, max_items)
-    -- First, call separate_output to parse the output
-    local separated_items = feature.separate_output(result)
-    -- Then, apply fuzzy scoring and limit to max_items
-    local top_items = utils.get_top_matches(separated_items, prefix, max_items)
-    -- Finally, assemble completion items using the shared function
-    return assemble_completion_items_from_words(feature, top_items)
-end
-
 --- Assemble completion items from already-separated words (fallback mode)
 --- @param feature blink-cmp-dictionary.Options
 --- @param words string[] # Already separated words from fallback search
@@ -74,6 +60,32 @@ local function assemble_completion_items_from_words(feature, words)
     end
     -- feature.configure_score_offset(items)
     return items
+end
+
+--- @param feature blink-cmp-dictionary.Options
+--- @param result string # Raw output from external command
+--- @param prefix string
+--- @param max_items number
+--- @param cmd string|nil # Command name (e.g., 'fzf') for optimization
+--- @return blink-cmp-dictionary.DictionaryCompletionItem[]
+local function assemble_completion_items_from_output(feature, result, prefix, max_items, cmd)
+    -- First, call separate_output to parse the output
+    local separated_items = feature.separate_output(result)
+    
+    -- Optimization: fzf output is already sorted, so just take first max_items
+    local top_items
+    if cmd == 'fzf' and #separated_items > max_items then
+        top_items = {}
+        for i = 1, max_items do
+            top_items[i] = separated_items[i]
+        end
+    else
+        -- Then, apply fuzzy scoring and limit to max_items
+        top_items = utils.get_top_matches(separated_items, prefix, max_items)
+    end
+    
+    -- Finally, assemble completion items using the shared function
+    return assemble_completion_items_from_words(feature, top_items)
 end
 
 --- Helper function to get all dictionary files
@@ -341,7 +353,8 @@ function DictionarySource:get_completions(context, callback)
                         dictionary_source_config,
                         output,
                         prefix,
-                        max_items)
+                        max_items,
+                        cmd)  -- Pass cmd for fzf optimization
                     vim.iter(match_list):each(function(match)
                         process_completion_item(match, context, items)
                     end)
