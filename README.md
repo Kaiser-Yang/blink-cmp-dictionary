@@ -23,15 +23,27 @@ For the default configuration, you must have at least one of `fzf`, `rg`, or `gr
 
 ### Fallback Mode
 
-If `fzf` is not available, the plugin will automatically fall back to using `rg` or `grep`. If **none** of `fzf`, `rg`, or `grep` are available, the plugin will use a pure Lua implementation. In fallback mode:
+**Default Behavior:**
+By default (since v2.1.0), if `fzf` is **not found**, the plugin will **directly fall back** to a pure Lua implementation instead of trying `rg` or `grep`. This provides the best user experience with excellent performance.
 
+**Disabling Fallback:**
+If you prefer to use `rg` or `grep` when `fzf` is not available, set `force_fallback = false` in your configuration:
+
+```lua
+opts = {
+    force_fallback = false,  -- Try rg/grep instead of fallback when fzf is not found
+}
+```
+
+**Fallback Mode Features:**
 * **No external dependencies** are required
 * **Synchronous filtering** is performed with excellent performance - almost no perceptible delay even with large dictionaries (tested with a 90,000 line file)
 * **Fuzzy matching** is supported (similar to `fzf`), with intelligent scoring based on match positions
-* Set `force_fallback = true` in configuration to force fallback mode (recommended over `get_command = ''`)
 
 > [!NOTE]
 > Performance issues are now **almost non-existent**. Testing with a 90,000 line dictionary file shows virtually no perceptible latency. The fallback mode is now a viable option even for large dictionaries.
+> 
+> If you encounter any performance issues with fallback mode, please [open an issue](https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues). We will work on implementing an asynchronous execution mode to resolve them.
 
 ## Installation
 
@@ -73,7 +85,7 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
 }
 ```
 
-**Using fallback mode (no external dependencies):**
+**Using fallback mode (no external dependencies, default if fzf not found):**
 
 ```lua
 {
@@ -92,9 +104,9 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     name = 'Dict',
                     min_keyword_length = 0,
                     opts = {
-                        -- Force fallback mode (recommended over setting get_command = '')
+                        -- Optional: explicitly force fallback mode
+                        -- (By default, fallback is used when fzf is not found)
                         force_fallback = true,
-                        -- options for blink-cmp-dictionary
                     }
                 }
             },
@@ -255,22 +267,37 @@ end,
 
 ### How to customize the command
 
-By default, `blink-cmp-dictionary` will read dictionary files using native Neovim async file I/O and pipe them to a search tool (`fzf`, `rg`, or `grep` in order of preference). 
+By default, `blink-cmp-dictionary` will read dictionary files using native Neovim async file I/O and pipe them to a search tool. 
 
-**Automatic Fallback:**
-If `fzf` is not available, the plugin will prefer fallback mode by default. If none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
-- Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
-- Has **excellent performance** even with large dictionaries (tested with 90,000 line files showing virtually no perceptible latency)
+**Default Behavior (since v2.1.0):**
+- If `fzf` is found → Use `fzf` for fuzzy searching
+- If `fzf` is **not** found → **Directly fall back to pure Lua implementation**
+- This provides excellent performance without requiring external tools
 
-**Manual Fallback:**
-You can force fallback mode by setting `force_fallback = true` (recommended):
+**Disable Fallback (use rg/grep when fzf not found):**
+If you prefer to try `rg` or `grep` when `fzf` is not available:
 
 ```lua
 opts = {
-    force_fallback = true,
+    force_fallback = false,  -- Try rg/grep instead of direct fallback
     -- Other options for blink-cmp-dictionary
 }
 ```
+
+**Force Fallback Mode:**
+You can force fallback mode even when `fzf` is available:
+
+```lua
+opts = {
+    force_fallback = true,   -- Always use pure Lua implementation
+    -- Other options for blink-cmp-dictionary
+}
+```
+
+**Fallback Mode Performance:**
+- Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
+- Has **excellent performance** even with large dictionaries (tested with 90,000 line files showing virtually no perceptible latency)
+- If you encounter performance issues, please [open an issue](https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues) - we can implement async execution
 
 **Custom Command:**
 You may configure a new command which supports reading from files directly, for example, `rg`:
@@ -387,11 +414,18 @@ opts = {
 
 ## Performance
 
+**Default Mode (since v2.1.0):**
+- If `fzf` is found: Uses `fzf` (asynchronous, no blocking)
+- If `fzf` is **not** found: Uses **fallback mode** (synchronous, but excellent performance)
+
 **With External Commands:**
 When using external commands (`fzf`, `rg`, or `grep`), `blink-cmp-dictionary` runs asynchronously and will not block other operations.
 
-**With Fallback Mode:**
+**With Fallback Mode (Default when fzf not found):**
 When using fallback mode (no external commands), the plugin performs **synchronous** filtering with **excellent performance**. Testing with a 90,000 line dictionary file shows virtually no perceptible latency. Performance issues are now almost non-existent, making fallback mode a viable option even for large dictionaries.
+
+> [!TIP]
+> If you encounter any performance issues with fallback mode, please [open an issue](https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues). We will implement an asynchronous execution mode to resolve them.
 
 **Performance Tuning:**
 
