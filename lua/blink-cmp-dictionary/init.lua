@@ -262,7 +262,12 @@ function DictionarySource:get_completions(context, callback)
         fallback.load_dictionaries(files)
         
         -- Perform synchronous search using fallback
-        local max_items = source_provider_config.max_items or 100
+        -- Check type: if it's a function or nil, use default of 100
+        -- We cannot call function types as we don't have the proper context
+        local max_items = 100
+        if type(source_provider_config.max_items) == 'number' then
+            max_items = source_provider_config.max_items
+        end
         local results = fallback.search(prefix, max_items)
         if utils.truthy(results) then
             local match_list = assemble_completion_items_from_output(
@@ -318,7 +323,12 @@ function DictionarySource:get_completions(context, callback)
                         table.insert(lines, line)
                     end
                     
-                    local max_items = source_provider_config.max_items or 100
+                    -- Check type: if it's a function or nil, use default of 100
+                    -- We cannot call function types as we don't have the proper context
+                    local max_items = 100
+                    if type(source_provider_config.max_items) == 'number' then
+                        max_items = source_provider_config.max_items
+                    end
                     local match_list = assemble_completion_items_from_output(
                         dictionary_source_config,
                         lines,
