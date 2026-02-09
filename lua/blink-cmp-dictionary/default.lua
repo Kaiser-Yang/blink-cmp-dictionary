@@ -28,13 +28,6 @@ local function match_prefix(prefix)
 end
 
 local function default_get_command()
-    -- Check if plenary is available (required for external commands)
-    local has_plenary = pcall(require, 'plenary.job')
-    if not has_plenary then
-        -- No plenary, must use fallback
-        return ''
-    end
-    
     -- Check if cat is available
     local has_cat = utils.command_found('cat')
     

@@ -34,15 +34,8 @@ function M.check()
     
     if not has_cat or not has_search_tool then
         health.info('Fallback mode will be used: pure Lua substring search (synchronous, may have performance issues)')
-        health.info('In fallback mode, plenary.nvim is not required')
     else
         health.info('External commands are available')
-        local has_plenary = pcall(require, 'plenary.job')
-        if has_plenary then
-            health.ok('plenary.nvim is installed')
-        else
-            health.info('plenary.nvim is not installed, will use fallback mode instead')
-        end
     end
     
     check_command_executable('wn', '"wn" is not installed, documentation will not be available')

@@ -25,7 +25,7 @@ For the default configuration, you must have `cat` and at least one of `fzf`, `r
 
 If `cat` is not available, or if `cat` is available but **none** of `fzf`, `rg`, or `grep` are available, the plugin will automatically fall back to a pure Lua implementation. In fallback mode:
 
-* **No external dependencies** are required (including `plenary.nvim`)
+* **No external dependencies** are required
 * **Synchronous filtering** is performed, which may cause performance issues with large dictionaries
 * **Fuzzy matching** is supported (similar to `fzf`), with intelligent scoring based on match positions
 * Set `get_command = ''` (empty string) in configuration to force fallback mode
@@ -45,10 +45,7 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
 {
     'saghen/blink.cmp',
     dependencies = {
-        {
-            'Kaiser-Yang/blink-cmp-dictionary',
-            dependencies = { 'nvim-lua/plenary.nvim' }
-        }
+        'Kaiser-Yang/blink-cmp-dictionary',
         -- ... Other dependencies
     },
     opts = {
@@ -78,10 +75,7 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
 {
     'saghen/blink.cmp',
     dependencies = {
-        {
-            'Kaiser-Yang/blink-cmp-dictionary',
-            -- No plenary.nvim dependency needed in fallback mode
-        }
+        'Kaiser-Yang/blink-cmp-dictionary',
         -- ... Other dependencies
     },
     opts = {
@@ -259,7 +253,6 @@ By default, `blink-cmp-dictionary` will use `cat` to concatenate dictionary file
 
 **Automatic Fallback:**
 If `cat` is not available, or if `cat` is available but none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
-- Does **not** require `plenary.nvim`
 - Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
 - May have **performance issues** with large dictionaries **only during the first load or when dictionary files are dynamically changed**. After the initial load, it provides consistent performance similar to external commands.
 
