@@ -121,8 +121,9 @@ local function fuzzy_match_score(word, pattern)
     return score
 end
 
---- Get top N items by fuzzy match score using quickselect-based approach
---- This is more efficient than sorting when we only need top k items (O(n + k) vs O(n log n))
+--- Get top N items by fuzzy match score using quickselect algorithm
+--- Based on nth_element from C++ STL, uses partition from quicksort
+--- Average O(n) complexity, better than heap-based O(n + k log k)
 --- @param items string[] # List of items to score
 --- @param pattern string # Pattern to match against
 --- @param max_items number # Maximum number of items to return
@@ -155,65 +156,71 @@ function M.get_top_matches(items, pattern, max_items)
         return results
     end
     
-    -- Use a min-heap approach to keep track of top k items
-    -- We'll maintain a heap of size max_items
-    local heap = {}
-    
-    -- Helper function to heapify down from index i
-    local function heapify_down(arr, size, i)
-        local smallest = i
-        local left = 2 * i
-        local right = 2 * i + 1
+    -- Partition function: rearranges elements so that elements >= pivot are on the left
+    -- Returns the final position of the pivot
+    local function partition(arr, left, right, pivot_idx)
+        local pivot_score = arr[pivot_idx].score
+        -- Move pivot to end
+        arr[pivot_idx], arr[right] = arr[right], arr[pivot_idx]
         
-        if left <= size and arr[left].score < arr[smallest].score then
-            smallest = left
-        end
-        if right <= size and arr[right].score < arr[smallest].score then
-            smallest = right
-        end
-        
-        if smallest ~= i then
-            arr[i], arr[smallest] = arr[smallest], arr[i]
-            heapify_down(arr, size, smallest)
-        end
-    end
-    
-    -- Helper function to heapify up from index i
-    local function heapify_up(arr, i)
-        while i > 1 do
-            local parent = math.floor(i / 2)
-            if arr[parent].score > arr[i].score then
-                arr[parent], arr[i] = arr[i], arr[parent]
-                i = parent
-            else
-                break
+        local store_idx = left
+        for i = left, right - 1 do
+            -- We want larger scores first, so use >= instead of <=
+            if arr[i].score >= pivot_score then
+                arr[store_idx], arr[i] = arr[i], arr[store_idx]
+                store_idx = store_idx + 1
             end
         end
+        
+        -- Move pivot to its final position
+        arr[store_idx], arr[right] = arr[right], arr[store_idx]
+        return store_idx
     end
     
-    -- Build initial heap with first max_items elements
-    for i = 1, max_items do
-        heap[i] = scored[i]
-    end
+    -- Iterative quickselect to find top k elements
+    -- After this, the first max_items elements will be the top scoring ones
+    local left = 1
+    local right = n
+    local k = max_items
     
-    -- Heapify the initial heap (build min-heap)
-    for i = math.floor(max_items / 2), 1, -1 do
-        heapify_down(heap, max_items, i)
-    end
-    
-    -- Process remaining elements
-    for i = max_items + 1, n do
-        -- If current item has higher score than heap root (min), replace it
-        if scored[i].score > heap[1].score then
-            heap[1] = scored[i]
-            heapify_down(heap, max_items, 1)
+    while left < right do
+        -- Choose pivot (median-of-three for better performance)
+        local mid = math.floor((left + right) / 2)
+        local pivot_idx
+        
+        if scored[left].score >= scored[mid].score then
+            if scored[mid].score >= scored[right].score then
+                pivot_idx = mid
+            elseif scored[left].score >= scored[right].score then
+                pivot_idx = right
+            else
+                pivot_idx = left
+            end
+        else
+            if scored[left].score >= scored[right].score then
+                pivot_idx = left
+            elseif scored[mid].score >= scored[right].score then
+                pivot_idx = right
+            else
+                pivot_idx = mid
+            end
+        end
+        
+        pivot_idx = partition(scored, left, right, pivot_idx)
+        
+        if pivot_idx == k then
+            break
+        elseif pivot_idx < k then
+            left = pivot_idx + 1
+        else
+            right = pivot_idx - 1
         end
     end
     
-    -- Extract items from heap
+    -- Extract top k items
     local results = {}
     for i = 1, max_items do
-        table.insert(results, heap[i].item)
+        table.insert(results, scored[i].item)
     end
     
     return results
