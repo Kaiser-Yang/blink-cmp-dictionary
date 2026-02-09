@@ -1,24 +1,24 @@
 --- Fallback search implementation that doesn't depend on external tools
 --- This module provides a pure Lua implementation for fuzzy search similar to fzf
+--- Uses a trie data structure for efficient fuzzy matching
 --- It runs synchronously and may have performance issues with large dictionaries
 
 local M = {}
 
+--- @class blink-cmp-dictionary.TrieNode
+--- @field children table<string, blink-cmp-dictionary.TrieNode> # Child nodes
+--- @field words table<string, boolean> # Words that end at or pass through this node
+--- @field is_end boolean # Whether this is the end of a word
+
 --- @class blink-cmp-dictionary.FileCache
---- @field words string[] # Cached words from this file
---- @field mtime number # Modification time of the file
 --- @field enabled boolean # Whether this cache entry is currently enabled
+--- @field word_list string[] # List of words for this file (for enable/disable)
 
 --- @type table<string, blink-cmp-dictionary.FileCache>
 local file_caches = {}
 
---- Get file modification time
---- @param filepath string
---- @return number|nil
-local function get_file_mtime(filepath)
-    local stat = vim.uv.fs_stat(filepath)
-    return stat and stat.mtime.sec or nil
-end
+--- @type blink-cmp-dictionary.TrieNode
+local trie_root = { children = {}, words = {}, is_end = false }
 
 --- Load a single dictionary file into cache
 --- @param filepath string
@@ -36,6 +36,46 @@ local function load_file(filepath)
         f:close()
     end
     return words
+end
+
+--- Insert a word into the trie
+--- @param word string
+local function trie_insert(word)
+    local node = trie_root
+    local word_lower = word:lower()
+    
+    -- Insert into trie character by character
+    for i = 1, #word_lower do
+        local char = word_lower:sub(i, i)
+        if not node.children[char] then
+            node.children[char] = { children = {}, words = {}, is_end = false }
+        end
+        node = node.children[char]
+        -- Store the original word at each node it passes through
+        node.words[word] = true
+    end
+    
+    node.is_end = true
+end
+
+--- Remove a word from the trie
+--- @param word string
+local function trie_remove(word)
+    local word_lower = word:lower()
+    local nodes = {}
+    local node = trie_root
+    
+    -- Traverse and collect nodes
+    for i = 1, #word_lower do
+        local char = word_lower:sub(i, i)
+        if not node.children[char] then
+            return -- Word not in trie
+        end
+        table.insert(nodes, { node = node, char = char })
+        node = node.children[char]
+        -- Remove word from this node's word set
+        node.words[word] = nil
+    end
 end
 
 --- Calculate fuzzy match score for a word against a pattern
@@ -98,12 +138,47 @@ local function fuzzy_match_score(word, pattern)
     return score
 end
 
+--- Search in trie starting from a node with a pattern
+--- @param pattern string
+--- @return table<string, boolean> # Set of matching words
+local function trie_search_fuzzy(pattern)
+    if pattern == "" then
+        return {}
+    end
+    
+    local pattern_lower = pattern:lower()
+    local first_char = pattern_lower:sub(1, 1)
+    local results = {}
+    
+    -- Start search from nodes that match the first character
+    if trie_root.children[first_char] then
+        -- Collect all words that pass through this node
+        local function collect_words(node)
+            for word, _ in pairs(node.words) do
+                results[word] = true
+            end
+        end
+        collect_words(trie_root.children[first_char])
+    end
+    
+    return results
+end
+
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
 --- @return boolean # Success status
 function M.load_dictionaries(files)
     if not files or #files == 0 then
-        file_caches = {}
+        -- Mark all caches as disabled but don't clear them
+        for _, cache in pairs(file_caches) do
+            if cache.enabled then
+                cache.enabled = false
+                -- Remove words from trie
+                for _, word in ipairs(cache.word_list) do
+                    trie_remove(word)
+                end
+            end
+        end
         return true
     end
     
@@ -116,26 +191,40 @@ function M.load_dictionaries(files)
     -- Mark cached files that are no longer in the list as disabled
     for filepath, cache in pairs(file_caches) do
         if not current_files[filepath] then
-            cache.enabled = false
+            if cache.enabled then
+                cache.enabled = false
+                -- Remove words from trie
+                for _, word in ipairs(cache.word_list) do
+                    trie_remove(word)
+                end
+            end
         end
     end
     
-    -- Load or refresh files as needed
+    -- Load or re-enable files as needed
     for _, filepath in ipairs(files) do
-        local mtime = get_file_mtime(filepath)
         local cached = file_caches[filepath]
         
-        -- Load file if not cached or if modified
-        if not cached or not mtime or cached.mtime ~= mtime then
+        -- Load file if not cached
+        if not cached then
             local words = load_file(filepath)
             file_caches[filepath] = {
-                words = words,
-                mtime = mtime or 0,
+                word_list = words,
                 enabled = true,
             }
+            -- Add words to trie
+            for _, word in ipairs(words) do
+                trie_insert(word)
+            end
         else
             -- Re-enable if it was disabled
-            cached.enabled = true
+            if not cached.enabled then
+                cached.enabled = true
+                -- Re-add words to trie
+                for _, word in ipairs(cached.word_list) do
+                    trie_insert(word)
+                end
+            end
         end
     end
     
@@ -153,28 +242,16 @@ function M.search(prefix, max_results)
         return {}
     end
     
-    local matches = {} -- Store {word, score} pairs
-    local result_set = {} -- For deduplication across files
+    -- Get candidate words from trie
+    local candidates = trie_search_fuzzy(prefix)
     
-    -- Search across all cached files
-    for _, file_cache in pairs(file_caches) do
-        -- Skip disabled caches
-        if not file_cache.enabled then
-            goto continue
+    -- Score and filter candidates
+    local matches = {}
+    for word, _ in pairs(candidates) do
+        local score = fuzzy_match_score(word, prefix)
+        if score then
+            table.insert(matches, {word = word, score = score})
         end
-        
-        for _, word in ipairs(file_cache.words) do
-            -- Skip if already in results
-            if not result_set[word] then
-                local score = fuzzy_match_score(word, prefix)
-                if score then
-                    table.insert(matches, {word = word, score = score})
-                    result_set[word] = true
-                end
-            end
-        end
-        
-        ::continue::
     end
     
     -- Sort by score (higher is better)
@@ -194,6 +271,7 @@ end
 --- Clear the cache
 function M.clear_cache()
     file_caches = {}
+    trie_root = { children = {}, words = {}, is_end = false }
 end
 
 --- Get cache statistics
@@ -204,7 +282,7 @@ function M.get_stats()
     
     for _, file_cache in pairs(file_caches) do
         if file_cache.enabled then
-            total_words = total_words + #file_cache.words
+            total_words = total_words + #file_cache.word_list
             file_count = file_count + 1
         end
     end
