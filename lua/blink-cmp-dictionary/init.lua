@@ -42,13 +42,13 @@ function DictionarySource.new(opts, config)
 end
 
 --- @param feature blink-cmp-dictionary.Options
---- @param result string[]
+--- @param result string
 --- @param prefix string
 --- @param max_items number
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
 local function assemble_completion_items_from_output(feature, result, prefix, max_items)
     -- First, call separate_output to parse the output
-    local separated_items = feature.separate_output(table.concat(result, '\n'))
+    local separated_items = feature.separate_output(result)
     -- Then, apply fuzzy scoring and limit to max_items
     local top_items = utils.get_top_matches(separated_items, prefix, max_items)
     -- Finally, assemble completion items
@@ -273,7 +273,7 @@ function DictionarySource:get_completions(context, callback)
         if utils.truthy(results) then
             local match_list = assemble_completion_items_from_output(
                 dictionary_source_config,
-                results,
+                table.concat(results, '\n'),
                 prefix,
                 max_items)
             vim.iter(match_list):each(function(match)
@@ -319,11 +319,6 @@ function DictionarySource:get_completions(context, callback)
                 
                 local output = result.stdout or ''
                 if utils.truthy(output) then
-                    local lines = {}
-                    for line in output:gmatch("[^\r\n]+") do
-                        table.insert(lines, line)
-                    end
-                    
                     -- Check type: if it's a function or nil, use default of 100
                     -- We cannot call function types as we don't have the proper context
                     local max_items = 100
@@ -332,7 +327,7 @@ function DictionarySource:get_completions(context, callback)
                     end
                     local match_list = assemble_completion_items_from_output(
                         dictionary_source_config,
-                        lines,
+                        output,
                         prefix,
                         max_items)
                     vim.iter(match_list):each(function(match)
