@@ -59,6 +59,11 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     -- Can be set to 0 in most cases.
                     -- If you experience performance issues, try setting it to 2.
                     min_keyword_length = 0,
+                    -- options for blink-cmp-dictionary
+                    opts = {
+                        -- put your dictionary files here
+                        -- dictionary_files = {}
+                    }
                 }
             },
         }
@@ -87,6 +92,7 @@ Add the plugin to your packer managers, and make sure it is loaded before `blink
                     opts = {
                         -- Force fallback mode
                         get_command = '',
+                        -- options for blink-cmp-dictionary
                     }
                 }
             },
@@ -387,7 +393,7 @@ When using fallback mode (no external commands), the plugin performs **synchrono
 
 **General Recommendations:**
 - The `min_keyword_length` parameter can be set to 0 in most cases. If you experience performance issues with large dictionaries, try setting it to 2.
-- You can configure the maximum number of completion items returned from the search using the `max_items` option at the provider level (default: 100). This applies fuzzy scoring to all matches and returns the top-scoring results.
+- You can configure the maximum number of completion items using the `max_items` option at the provider level. The dictionary source will inherit this value from blink.cmp (default: 100). This applies fuzzy scoring to all matches and returns the top-scoring results.
 
 ```lua
 opts = {
@@ -397,9 +403,8 @@ opts = {
                 module = 'blink-cmp-dictionary',
                 name = 'Dict',
                 min_keyword_length = 0,  -- Set to 2 if performance issues occur
-                -- Maximum items from dictionary search (default: 100)
-                -- This controls how many items the dictionary source returns after scoring
-                max_items = 100,
+                -- Add this and change the value to your own preference
+                max_items = 8, -- blink-cmp-dictionary will inherit this, the default is 100
             }
         },
     }
