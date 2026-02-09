@@ -1,5 +1,5 @@
 --- Fallback search implementation that doesn't depend on external tools
---- This module provides a pure Lua implementation for substring search similar to grep -F
+--- This module provides a pure Lua implementation for fuzzy search similar to fzf
 --- It runs synchronously and may have performance issues with large dictionaries
 
 local M = {}
@@ -7,6 +7,7 @@ local M = {}
 --- @class blink-cmp-dictionary.FileCache
 --- @field words string[] # Cached words from this file
 --- @field mtime number # Modification time of the file
+--- @field enabled boolean # Whether this cache entry is currently enabled
 
 --- @type table<string, blink-cmp-dictionary.FileCache>
 local file_caches = {}
@@ -15,7 +16,7 @@ local file_caches = {}
 --- @param filepath string
 --- @return number|nil
 local function get_file_mtime(filepath)
-    local stat = vim.loop.fs_stat(filepath)
+    local stat = vim.uv.fs_stat(filepath)
     return stat and stat.mtime.sec or nil
 end
 
@@ -37,6 +38,65 @@ local function load_file(filepath)
     return words
 end
 
+--- Calculate fuzzy match score for a word against a pattern
+--- Returns a score (higher is better) or nil if no match
+--- Based on fzy algorithm: consecutive matches and position bonuses
+--- @param word string
+--- @param pattern string
+--- @return number|nil # Score or nil if no match
+local function fuzzy_match_score(word, pattern)
+    if pattern == "" then
+        return 0
+    end
+    
+    local word_lower = word:lower()
+    local pattern_lower = pattern:lower()
+    
+    -- Check if all pattern characters exist in word (in order)
+    local word_idx = 1
+    local pattern_idx = 1
+    local match_positions = {}
+    
+    while pattern_idx <= #pattern_lower and word_idx <= #word_lower do
+        if word_lower:sub(word_idx, word_idx) == pattern_lower:sub(pattern_idx, pattern_idx) then
+            table.insert(match_positions, word_idx)
+            pattern_idx = pattern_idx + 1
+        end
+        word_idx = word_idx + 1
+    end
+    
+    -- If not all pattern characters matched, no match
+    if pattern_idx <= #pattern_lower then
+        return nil
+    end
+    
+    -- Calculate score based on match positions
+    local score = 0
+    local last_pos = 0
+    
+    for _, pos in ipairs(match_positions) do
+        -- Bonus for matches at the beginning
+        if pos == 1 then
+            score = score + 100
+        end
+        
+        -- Bonus for consecutive matches
+        if pos == last_pos + 1 then
+            score = score + 50
+        end
+        
+        -- Penalty for later positions (prefer earlier matches)
+        score = score - pos
+        
+        last_pos = pos
+    end
+    
+    -- Bonus for shorter words (prefer exact or close matches)
+    score = score + (100 - #word_lower)
+    
+    return score
+end
+
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
 --- @return boolean # Success status
@@ -52,10 +112,10 @@ function M.load_dictionaries(files)
         current_files[file] = true
     end
     
-    -- Remove cached files that are no longer in the list
-    for filepath, _ in pairs(file_caches) do
+    -- Mark cached files that are no longer in the list as disabled
+    for filepath, cache in pairs(file_caches) do
         if not current_files[filepath] then
-            file_caches[filepath] = nil
+            cache.enabled = false
         end
     end
     
@@ -70,17 +130,21 @@ function M.load_dictionaries(files)
             file_caches[filepath] = {
                 words = words,
                 mtime = mtime or 0,
+                enabled = true,
             }
+        else
+            -- Re-enable if it was disabled
+            cached.enabled = true
         end
     end
     
     return true
 end
 
---- Search for words containing the given prefix (case-insensitive substring match)
+--- Search for words matching the given prefix with fuzzy matching
 --- @param prefix string # The search prefix
 --- @param max_results? number # Maximum number of results to return (default: 100)
---- @return string[] # List of matching words
+--- @return string[] # List of matching words, sorted by relevance
 function M.search(prefix, max_results)
     max_results = max_results or 100
     
@@ -88,33 +152,39 @@ function M.search(prefix, max_results)
         return {}
     end
     
-    local results = {}
+    local matches = {} -- Store {word, score} pairs
     local result_set = {} -- For deduplication across files
-    local lower_prefix = prefix:lower()
-    local count = 0
     
     -- Search across all cached files
     for _, file_cache in pairs(file_caches) do
-        if count >= max_results then
-            break
+        -- Skip disabled caches
+        if not file_cache.enabled then
+            goto continue
         end
         
         for _, word in ipairs(file_cache.words) do
-            if count >= max_results then
-                break
-            end
-            
             -- Skip if already in results
             if not result_set[word] then
-                local lower_word = word:lower()
-                -- Check if prefix is a substring of word
-                if lower_word:find(lower_prefix, 1, true) then
-                    table.insert(results, word)
+                local score = fuzzy_match_score(word, prefix)
+                if score then
+                    table.insert(matches, {word = word, score = score})
                     result_set[word] = true
-                    count = count + 1
                 end
             end
         end
+        
+        ::continue::
+    end
+    
+    -- Sort by score (higher is better)
+    table.sort(matches, function(a, b)
+        return a.score > b.score
+    end)
+    
+    -- Extract top results
+    local results = {}
+    for i = 1, math.min(#matches, max_results) do
+        table.insert(results, matches[i].word)
     end
     
     return results
@@ -132,8 +202,10 @@ function M.get_stats()
     local file_count = 0
     
     for _, file_cache in pairs(file_caches) do
-        total_words = total_words + #file_cache.words
-        file_count = file_count + 1
+        if file_cache.enabled then
+            total_words = total_words + #file_cache.words
+            file_count = file_count + 1
+        end
     end
     
     return {

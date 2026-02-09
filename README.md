@@ -27,7 +27,7 @@ If `cat` is not available, or if `cat` is available but **none** of `fzf`, `rg`,
 
 * **No external dependencies** are required (including `plenary.nvim`)
 * **Synchronous filtering** is performed, which may cause performance issues with large dictionaries
-* **Substring search** is supported (similar to `grep -F`), not just prefix matching
+* **Fuzzy matching** is supported (similar to `fzf`), with intelligent scoring based on match positions
 * Set `get_command = ''` (empty string) in configuration to force fallback mode
 
 > [!WARNING]
@@ -263,7 +263,7 @@ By default, `blink-cmp-dictionary` will use `cat` to concatenate dictionary file
 **Automatic Fallback:**
 If `cat` is not available, or if `cat` is available but none of the search tools (`fzf`, `rg`, `grep`) are available, the plugin will automatically use a pure Lua fallback implementation. This fallback:
 - Does **not** require `plenary.nvim`
-- Performs **substring search** (similar to `grep -F`) synchronously
+- Performs **fuzzy matching** (similar to `fzf`) synchronously with intelligent scoring
 - May have **performance issues** with large dictionaries
 
 **Manual Fallback:**
