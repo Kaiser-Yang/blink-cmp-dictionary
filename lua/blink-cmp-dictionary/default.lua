@@ -86,9 +86,9 @@ local function default_on_error(return_value, standard_error)
     return false
 end
 
-local function default_separate_output(output, prefix, max_items)
+local function default_separate_output(output)
     local items = {}
-    local max_candidates = math.max(max_items * 10, 1000) -- Collect up to 10x max_items or 1000, whichever is larger
+    local max_candidates = 10000 -- Collect up to 10000 items to prevent excessive memory usage
     for line in output:gmatch("[^\r\n]+") do
         table.insert(items, line)
         -- Limit candidates to prevent excessive memory usage
@@ -96,8 +96,7 @@ local function default_separate_output(output, prefix, max_items)
             break
         end
     end
-    -- Use fuzzy scoring to get top matches
-    return utils.get_top_matches(items, prefix, max_items)
+    return items
 end
 
 local function default_get_label(item)

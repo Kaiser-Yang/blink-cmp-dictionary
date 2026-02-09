@@ -47,8 +47,13 @@ end
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
 local function assemble_completion_items_from_output(feature, result, prefix)
     local max_items = feature.max_items or 100
+    -- First, call separate_output to parse the output
+    local separated_items = feature.separate_output(table.concat(result, '\n'))
+    -- Then, apply fuzzy scoring and limit to max_items
+    local top_items = utils.get_top_matches(separated_items, prefix, max_items)
+    -- Finally, assemble completion items
     local items = {}
-    for i, v in ipairs(feature.separate_output(table.concat(result, '\n'), prefix, max_items)) do
+    for i, v in ipairs(top_items) do
         items[i] = {
             label = feature.get_label(v),
             kind_name = feature.get_kind_name(v),
