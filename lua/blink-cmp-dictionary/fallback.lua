@@ -99,32 +99,4 @@ function M.search(prefix, max_results)
     return utils.get_top_matches(all_words, prefix, max_results)
 end
 
---- Clear the cache
-function M.clear_cache()
-    file_word_lists = {}
-end
-
---- Get cache statistics
---- @return { word_count: number, file_count: number }
-function M.get_stats()
-    local total_words = 0
-    local file_count = 0
-    local seen = {}
-    
-    for _, word_list in pairs(file_word_lists) do
-        for _, word in ipairs(word_list) do
-            if not seen[word] then
-                total_words = total_words + 1
-                seen[word] = true
-            end
-        end
-        file_count = file_count + 1
-    end
-    
-    return {
-        word_count = total_words,
-        file_count = file_count,
-    }
-end
-
 return M
