@@ -166,24 +166,29 @@ local function read_dictionary_files_async(files, callback)
     local content_parts = {}
     local remaining = #files
     local has_error = false
+    local callback_invoked = false
     
     for i, filepath in ipairs(files) do
         read_file_async(filepath, function(content, err)
-            if has_error then
+            if callback_invoked then
                 return
             end
             
             if err then
-                has_error = true
-                callback(nil)
+                if not has_error then
+                    has_error = true
+                    callback_invoked = true
+                    callback(nil)
+                end
                 return
             end
             
             content_parts[i] = content or ''
             remaining = remaining - 1
             
-            if remaining == 0 then
+            if remaining == 0 and not has_error then
                 -- All files read successfully
+                callback_invoked = true
                 local full_content = table.concat(content_parts, '\n')
                 callback(full_content)
             end
