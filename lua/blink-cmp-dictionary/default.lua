@@ -27,6 +27,12 @@ local function build_word_character_pattern(iskeyword)
                 local end_char = string.char(end_num)
                 pattern = pattern + vim.lpeg.R(start_char .. end_char)
             end
+        elseif part:match('^.%-.') then
+            -- Character range like "a-z" or "A-Z"
+            local start_char, end_char = part:match('^(.)%-(.)$')
+            if start_char and end_char then
+                pattern = pattern + vim.lpeg.R(start_char .. end_char)
+            end
         elseif #part == 1 then
             -- Single character like "_"
             pattern = pattern + vim.lpeg.P(part)
