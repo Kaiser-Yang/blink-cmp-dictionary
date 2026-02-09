@@ -62,16 +62,14 @@ end
 --- @param word string
 local function trie_remove(word)
     local word_lower = word:lower()
-    local nodes = {}
     local node = trie_root
     
-    -- Traverse and collect nodes
+    -- Traverse and remove word from all nodes
     for i = 1, #word_lower do
         local char = word_lower:sub(i, i)
         if not node.children[char] then
             return -- Word not in trie
         end
-        table.insert(nodes, { node = node, char = char })
         node = node.children[char]
         -- Remove word from this node's word set
         node.words[word] = nil
@@ -153,12 +151,9 @@ local function trie_search_fuzzy(pattern)
     -- Start search from nodes that match the first character
     if trie_root.children[first_char] then
         -- Collect all words that pass through this node
-        local function collect_words(node)
-            for word, _ in pairs(node.words) do
-                results[word] = true
-            end
+        for word, _ in pairs(trie_root.children[first_char].words) do
+            results[word] = true
         end
-        collect_words(trie_root.children[first_char])
     end
     
     return results
