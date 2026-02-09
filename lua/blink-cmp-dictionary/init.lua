@@ -282,9 +282,21 @@ function DictionarySource:get_completions(context, callback)
             end
         end
         
-        utils.read_dictionary_files_async(files, function(content)
+        utils.read_dictionary_files_async(files, function(return_code, standard_error, content)
             if read_obj.cancelled then
                 return
+            end
+            
+            -- Check for errors and call on_error if needed
+            if return_code ~= 0 and utils.truthy(standard_error) then
+                if dictionary_source_config.on_error(return_code, standard_error) then
+                    -- on_error returned true, stop processing
+                    vim.schedule(function()
+                        transformed_callback()
+                    end)
+                    return
+                end
+                -- on_error returned false, continue with available content
             end
             
             if not content or content == '' then

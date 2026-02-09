@@ -233,14 +233,14 @@ end
 
 --- Read a single file asynchronously using libuv with caching (internal function)
 --- @param filepath string
---- @param callback function(string|nil, string|nil) Called with (content, error)
+--- @param callback function(number, string|nil, string|nil) Called with (return_code, standard_error, content)
 --- @param use_cache? boolean Whether to use file cache (default: true)
 local function read_file_async(filepath, callback, use_cache)
     use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
     -- Check if already cached (only if caching is enabled)
     if use_cache and file_cache[filepath] and file_cache[filepath].content then
-        callback(file_cache[filepath].content, nil)
+        callback(0, nil, file_cache[filepath].content)
         return
     end
     
@@ -263,12 +263,12 @@ local function read_file_async(filepath, callback, use_cache)
             file_cache[filepath] = nil
             vim.schedule(function()
                 for _, cb in ipairs(pending) do
-                    cb(nil, error_msg)
+                    cb(1, error_msg, nil)
                 end
             end)
         else
             vim.schedule(function()
-                callback(nil, error_msg)
+                callback(1, error_msg, nil)
             end)
         end
     end
@@ -297,12 +297,12 @@ local function read_file_async(filepath, callback, use_cache)
                         file_cache[filepath] = { content = data }
                         vim.schedule(function()
                             for _, cb in ipairs(pending) do
-                                cb(data, nil)
+                                cb(0, nil, data)
                             end
                         end)
                     else
                         vim.schedule(function()
-                            callback(data, nil)
+                            callback(0, nil, data)
                         end)
                     end
                 end
@@ -314,14 +314,14 @@ end
 --- Read dictionary files asynchronously and concatenate the content
 --- Accepts either a single file path (string) or multiple file paths (string[])
 --- @param files string|string[] Single file path or list of dictionary file paths
---- @param callback function(string|nil) Called with content or nil on error
+--- @param callback function(number, string|nil, string|nil) Called with (return_code, standard_error, content)
 --- @param use_cache? boolean Whether to use file cache (default: true)
 function M.read_dictionary_files_async(files, callback, use_cache)
     use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
     -- Validate input before type conversion
     if not files then
-        callback(nil)
+        callback(1, "No files provided", nil)
         return
     end
     
@@ -331,29 +331,41 @@ function M.read_dictionary_files_async(files, callback, use_cache)
     end
     
     if #files == 0 then
-        callback(nil)
+        callback(1, "Empty file list", nil)
         return
     end
     
     -- Read all files asynchronously (each file uses per-file caching based on use_cache)
     local content_parts = {}
+    local error_parts = {}
     local remaining = #files
+    local has_errors = false
     
     for i, filepath in ipairs(files) do
-        read_file_async(filepath, function(content, err)
-            -- Treat errors as empty content and continue
-            content_parts[i] = (not err and content) or ''
+        read_file_async(filepath, function(return_code, err, content)
+            if return_code ~= 0 or err then
+                -- Track errors but continue processing
+                has_errors = true
+                error_parts[i] = err or "Unknown error"
+                content_parts[i] = ''
+            else
+                content_parts[i] = content or ''
+            end
             
             remaining = remaining - 1
             
             if remaining == 0 then
                 -- All files processed (some may have failed)
                 local full_content = table.concat(content_parts, '\n')
-                -- Only return nil if content is empty or whitespace only
+                local full_errors = table.concat(error_parts, '; ')
+                
+                -- Return with appropriate status
                 if full_content == '' or full_content:match('^%s*$') then
-                    callback(nil)
+                    -- No content available
+                    callback(1, full_errors ~= '' and full_errors or "No content available", nil)
                 else
-                    callback(full_content)
+                    -- Have some content, pass errors if any
+                    callback(has_errors and 1 or 0, has_errors and full_errors or nil, full_content)
                 end
             end
         end, use_cache)

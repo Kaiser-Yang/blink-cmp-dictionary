@@ -62,7 +62,7 @@ function M.load_dictionaries(files, separate_output, callback)
     -- Read all files at once to avoid multiple callback invocations
     -- Note: All files loaded together share the same word list (concatenated content)
     -- This is a trade-off: simpler code and single callback vs per-file word granularity
-    utils.read_dictionary_files_async(files_to_load, function(content)
+    utils.read_dictionary_files_async(files_to_load, function(return_code, standard_error, content)
         if content then
             -- Parse content into words using separate_output
             local words = separate_output(content)
