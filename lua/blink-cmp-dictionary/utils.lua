@@ -319,12 +319,18 @@ end
 function M.read_dictionary_files_async(files, callback, use_cache)
     use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
+    -- Validate input before type conversion
+    if not files then
+        callback(nil)
+        return
+    end
+    
     -- Handle single file case - convert to array
     if type(files) == 'string' then
         files = { files }
     end
     
-    if not files or #files == 0 then
+    if #files == 0 then
         callback(nil)
         return
     end
