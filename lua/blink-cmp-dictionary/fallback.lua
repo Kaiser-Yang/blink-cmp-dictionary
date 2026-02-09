@@ -30,19 +30,7 @@ local function load_file(filepath, separate_output)
     f:close()
     
     -- Use separate_output to parse the file content
-    if separate_output then
-        return separate_output(content)
-    else
-        -- Fallback to default line-based parsing
-        local words = {}
-        for line in content:gmatch("[^\r\n]+") do
-            local word = line:match("^%s*(.-)%s*$") -- trim whitespace
-            if word and word ~= "" then
-                table.insert(words, word)
-            end
-        end
-        return words
-    end
+    return separate_output(content)
 end
 
 --- Insert a word into the trie for all its substrings
