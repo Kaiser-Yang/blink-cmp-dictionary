@@ -75,10 +75,17 @@ local function assemble_completion_items_from_output(feature, result, prefix, ma
     -- Optimization: fzf output is already sorted, or if we have fewer items than max_items
     -- we don't need to do any scoring/selection
     local top_items
-    if cmd == 'fzf' or #separated_items <= max_items then
+    if cmd == 'fzf' then
+        -- fzf output is already sorted, just take first max_items
+        top_items = {}
+        for i = 1, math.min(#separated_items, max_items) do
+            table.insert(top_items, separated_items[i])
+        end
+    elseif #separated_items <= max_items then
+        -- Not enough items to select, use all
         top_items = separated_items
     else
-        -- Then, apply fuzzy scoring and limit to max_items
+        -- Apply fuzzy scoring and limit to max_items
         top_items = utils.get_top_matches(separated_items, prefix, max_items)
     end
     
