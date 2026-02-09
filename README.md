@@ -400,7 +400,7 @@ When using fallback mode (no external commands), the plugin performs **synchrono
   - With **fzf**: Higher values may improve performance
   - With **other commands** (rg/grep): Higher values significantly improve performance
 
-- **`max_items`**: Smaller values result in better performance across all modes. This is because blink.cmp's fuzzy find processes the items - more items require more processing time.
+- **`max_items`**: Smaller values result in better performance across all modes. This is because blink.cmp's fuzzy matching (which happens after dictionary results are returned) processes the items - more items require more processing time downstream.
 
 **Example Configuration:**
 
