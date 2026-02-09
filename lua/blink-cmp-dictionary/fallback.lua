@@ -83,7 +83,7 @@ local function trie_remove(word, filepath)
             if node.words[word] then
                 node.words[word][filepath] = nil
                 -- If no more files reference this word, remove it completely
-                if next(node.words[word]) == nil then
+                if not next(node.words[word]) then
                     node.words[word] = nil
                 end
             end
