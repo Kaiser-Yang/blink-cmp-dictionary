@@ -37,15 +37,13 @@ local function build_word_character_pattern(iskeyword)
                     -- Convert numbers to characters
                     local start_char = string.char(start_num)
                     local end_char = string.char(end_num)
-                    -- vim.lpeg.R takes two separate arguments, not concatenated
-                    char_pattern = char_pattern + vim.lpeg.R(start_char, end_char)
+                    char_pattern = char_pattern + vim.lpeg.R(start_char .. end_char)
                 end
             else
                 -- Try to match as character range like "a-z" or "A-Z"
                 local start_char, end_char = part:match('^(.)%-(.)$')
                 if start_char and end_char then
-                    -- vim.lpeg.R takes two separate arguments, not concatenated
-                    char_pattern = char_pattern + vim.lpeg.R(start_char, end_char)
+                    char_pattern = char_pattern + vim.lpeg.R(start_char .. end_char)
                 end
             end
         end
