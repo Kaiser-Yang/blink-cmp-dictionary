@@ -8,13 +8,19 @@ local utils = require('blink-cmp-dictionary.utils')
 --- @type table<string, string[]> # filepath -> list of words
 local file_word_lists = {}
 
+--- @type table<string, boolean> # filepath -> enabled status
+local file_enabled = {}
+
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
 --- @param separate_output? function # Function to separate file content into words
 --- @param callback function(boolean) # Callback called with success status
 function M.load_dictionaries(files, separate_output, callback)
     if not files or #files == 0 then
-        -- Don't clear cache - files may not have changed, just no files in current context
+        -- Don't clear cache - just mark all files as disabled
+        for filepath, __ in pairs(file_word_lists) do
+            file_enabled[filepath] = false
+        end
         if callback then
             callback(true)
         end
@@ -27,11 +33,14 @@ function M.load_dictionaries(files, separate_output, callback)
         current_files[file] = true
     end
     
-    -- Remove words from files that are no longer in the list
+    -- Mark files as enabled or disabled based on current list
     for filepath, __ in pairs(file_word_lists) do
-        if not current_files[filepath] then
-            file_word_lists[filepath] = nil
-        end
+        file_enabled[filepath] = current_files[filepath] or false
+    end
+    
+    -- Mark new files as enabled
+    for _, filepath in ipairs(files) do
+        file_enabled[filepath] = true
     end
     
     -- Load new files asynchronously
@@ -84,15 +93,18 @@ function M.search(prefix, max_results)
         return {}
     end
     
-    -- Collect all words from all cached files
+    -- Collect all words from enabled cached files only
     local all_words = {}
     local seen = {}
     
-    for _, word_list in pairs(file_word_lists) do
-        for _, word in ipairs(word_list) do
-            if not seen[word] then
-                table.insert(all_words, word)
-                seen[word] = true
+    for filepath, word_list in pairs(file_word_lists) do
+        -- Only include words from enabled files
+        if file_enabled[filepath] then
+            for _, word in ipairs(word_list) do
+                if not seen[word] then
+                    table.insert(all_words, word)
+                    seen[word] = true
+                end
             end
         end
     end
