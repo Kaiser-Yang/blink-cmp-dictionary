@@ -230,7 +230,15 @@ function DictionarySource:get_completions(context, callback)
     if utils.truthy(files) then
         local cat_obj = { cancelled = false }
         
-        vim.system({ 'cat', unpack(files) }, { text = true }, function(result)
+        -- Set cancel_fun immediately to handle race conditions
+        cancel_fun = function()
+            cat_obj.cancelled = true
+            if cancel_fun_ref.fn then
+                cancel_fun_ref.fn()
+            end
+        end
+        
+        vim.system({ 'cat', table.unpack(files) }, { text = true }, function(result)
             if cat_obj.cancelled then
                 return
             end
@@ -246,13 +254,6 @@ function DictionarySource:get_completions(context, callback)
             -- Now run the search command with cat output as stdin
             run_search_command(cat_output)
         end)
-        
-        cancel_fun = function()
-            cat_obj.cancelled = true
-            if cancel_fun_ref.fn then
-                cancel_fun_ref.fn()
-            end
-        end
     else
         -- No files, just run the command without stdin
         run_search_command(nil)
