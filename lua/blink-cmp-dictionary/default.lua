@@ -88,8 +88,13 @@ end
 
 local function default_separate_output(output, prefix, max_items)
     local items = {}
+    local max_candidates = math.max(max_items * 10, 1000) -- Collect up to 10x max_items or 1000, whichever is larger
     for line in output:gmatch("[^\r\n]+") do
         table.insert(items, line)
+        -- Limit candidates to prevent excessive memory usage
+        if #items >= max_candidates then
+            break
+        end
     end
     -- Use fuzzy scoring to get top matches
     return utils.get_top_matches(items, prefix, max_items)

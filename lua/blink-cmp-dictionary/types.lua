@@ -19,7 +19,7 @@
 --- @field decapitalize_first? boolean|fun(context: blink.cmp.Context, match: blink-cmp-dictionary.DictionaryCompletionItem): boolean
 --- @field decapitalize_whole_word? boolean|fun(context: blink.cmp.Context, match: blink-cmp-dictionary.DictionaryCompletionItem): boolean
 --- @field get_command? string|fun(): string
---- @field get_command_args? fun(prefix: string, coomand: string): string[]
+--- @field get_command_args? fun(prefix: string, command: string): string[]
 --- @field separate_output? fun(output: string, prefix: string, max_items: number): any[]
 --- @field get_label? fun(item: any): string
 --- @field get_kind_name? fun(item: any): string

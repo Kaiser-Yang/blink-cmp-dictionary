@@ -405,9 +405,12 @@ opts = {
                 name = 'Dict',
                 min_keyword_length = 0,  -- Set to 2 if performance issues occur
                 opts = {
-                    max_items = 100,  -- Maximum items from dictionary search (default: 100)
+                    -- Maximum items from dictionary search (default: 100)
+                    -- This controls how many items the dictionary source returns after scoring
+                    max_items = 100,
                 },
-                -- Optionally, limit items shown in completion menu
+                -- Maximum items shown in blink.cmp completion menu (applies to all sources)
+                -- This is a blink.cmp setting, not specific to the dictionary source
                 max_items = 8,
             }
         },
