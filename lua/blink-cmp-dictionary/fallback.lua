@@ -51,7 +51,7 @@ function M.load_dictionaries(files, separate_output, callback)
     end
     
     -- Read each file individually to maintain per-file word caching
-    -- Each call to read_dictionary_files_async with a single file happens in parallel
+    -- All async file reads start immediately (parallel I/O via async callbacks)
     -- We need per-file parsing because file_word_lists is keyed by filepath
     local remaining = #files_to_load
     for _, filepath in ipairs(files_to_load) do
