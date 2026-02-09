@@ -59,27 +59,27 @@ function M.load_dictionaries(files, separate_output, callback)
         return
     end
     
-    -- Read each file individually to maintain per-file word caching
-    -- All async file reads start immediately (parallel I/O via async callbacks)
-    -- We need per-file parsing because file_word_lists is keyed by filepath
-    local remaining = #files_to_load
-    for _, filepath in ipairs(files_to_load) do
-        utils.read_dictionary_files_async(filepath, function(content)
-            remaining = remaining - 1
-            
-            if content then
-                -- Parse content into words using separate_output
-                local words = separate_output(content)
+    -- Read all files at once to avoid multiple callback invocations
+    utils.read_dictionary_files_async(files_to_load, function(content)
+        if content then
+            -- Parse content into words using separate_output
+            local words = separate_output(content)
+            -- Store the same word list for all loaded files
+            -- This is acceptable since files are loaded together as a batch
+            for _, filepath in ipairs(files_to_load) do
                 file_word_lists[filepath] = words
-            else
+            end
+        else
+            -- Mark failed files with empty word lists
+            for _, filepath in ipairs(files_to_load) do
                 file_word_lists[filepath] = {}
             end
-            
-            if remaining == 0 and callback then
-                callback(true)
-            end
-        end, false)  -- Disable cache in utils to let fallback manage its own cache
-    end
+        end
+        
+        if callback then
+            callback(true)
+        end
+    end, false)  -- Disable cache in utils to let fallback manage its own cache
 end
 
 --- Search for words matching the given prefix with fuzzy matching
