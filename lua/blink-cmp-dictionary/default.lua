@@ -28,9 +28,29 @@ local function match_prefix(prefix)
 end
 
 local function default_get_command()
-    return utils.command_found('fzf') and 'fzf' or
-        utils.command_found('rg') and 'rg' or
-        utils.command_found('grep') and 'grep' or ''
+    -- Check if plenary is available (required for external commands)
+    local has_plenary = pcall(require, 'plenary.job')
+    if not has_plenary then
+        -- No plenary, must use fallback
+        return ''
+    end
+    
+    -- Check if cat is available
+    local has_cat = utils.command_found('cat')
+    
+    -- If cat is available, check for search tools
+    if has_cat then
+        if utils.command_found('fzf') then
+            return 'fzf'
+        elseif utils.command_found('rg') then
+            return 'rg'
+        elseif utils.command_found('grep') then
+            return 'grep'
+        end
+    end
+    
+    -- Fallback to empty string (will use pure Lua implementation)
+    return ''
 end
 
 local function default_get_command_args(prefix, command)
