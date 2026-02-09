@@ -8,10 +8,6 @@ local fallback = require('blink-cmp-dictionary.fallback')
 
 -- No longer need plenary.job - using native vim.system instead
 
--- Cache for individual dictionary file contents
--- Note: Cache is now managed in utils.lua
-
-
 --- @type blink.cmp.Source
 --- @diagnostic disable-next-line: missing-fields
 local DictionarySource = {}

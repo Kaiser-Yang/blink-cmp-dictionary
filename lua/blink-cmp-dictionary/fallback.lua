@@ -29,7 +29,7 @@ function M.load_dictionaries(files, separate_output, callback)
     end
     
     -- Remove words from files that are no longer in the list
-    for filepath, _ in pairs(file_word_lists) do
+    for filepath, __ in pairs(file_word_lists) do
         if not current_files[filepath] then
             file_word_lists[filepath] = nil
         end
