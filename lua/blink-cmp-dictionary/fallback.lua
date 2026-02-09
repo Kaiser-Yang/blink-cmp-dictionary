@@ -18,7 +18,7 @@ local file_enabled = {}
 function M.load_dictionaries(files, separate_output, callback)
     if not files or #files == 0 then
         -- Don't clear cache - just mark all files as disabled
-        for filepath, __ in pairs(file_word_lists) do
+        for filepath, _ in pairs(file_word_lists) do
             file_enabled[filepath] = false
         end
         if callback then
@@ -34,7 +34,7 @@ function M.load_dictionaries(files, separate_output, callback)
     end
     
     -- Mark files as enabled or disabled based on current list
-    for filepath, __ in pairs(file_word_lists) do
+    for filepath, _ in pairs(file_word_lists) do
         file_enabled[filepath] = current_files[filepath] or false
     end
     
