@@ -53,10 +53,10 @@ function M.load_dictionaries(files, separate_output, callback)
     -- Use async file reading from utils (disable utils cache to avoid duplicate data in memory)
     local remaining = #files_to_load
     for _, filepath in ipairs(files_to_load) do
-        utils.read_file_async(filepath, function(content, err)
+        utils.read_dictionary_files_async(filepath, function(content)
             remaining = remaining - 1
             
-            if content and not err then
+            if content then
                 -- Parse content into words using separate_output
                 local words = separate_output(content)
                 file_word_lists[filepath] = words

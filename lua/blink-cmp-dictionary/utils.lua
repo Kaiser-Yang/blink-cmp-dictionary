@@ -231,11 +231,11 @@ function M.get_top_matches(items, pattern, max_items)
     return results
 end
 
---- Read a single file asynchronously using libuv with caching
+--- Read a single file asynchronously using libuv with caching (internal function)
 --- @param filepath string
 --- @param callback function(string|nil, string|nil) Called with (content, error)
 --- @param use_cache? boolean # Whether to use file cache (default: true)
-function M.read_file_async(filepath, callback, use_cache)
+local function read_file_async(filepath, callback, use_cache)
     use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
     -- Check if already cached (only if caching is enabled)
@@ -312,11 +312,17 @@ function M.read_file_async(filepath, callback, use_cache)
 end
 
 --- Read dictionary files asynchronously and concatenate the content
---- @param files string[]
+--- Accepts either a single file path (string) or multiple file paths (string[])
+--- @param files string|string[] # Single file path or list of dictionary file paths
 --- @param callback function(string|nil) Called with content or nil on error
 --- @param use_cache? boolean # Whether to use file cache (default: true)
 function M.read_dictionary_files_async(files, callback, use_cache)
     use_cache = use_cache ~= false  -- Default to true unless explicitly false
+    
+    -- Handle single file case - convert to array
+    if type(files) == 'string' then
+        files = { files }
+    end
     
     if not files or #files == 0 then
         callback(nil)
@@ -328,7 +334,7 @@ function M.read_dictionary_files_async(files, callback, use_cache)
     local remaining = #files
     
     for i, filepath in ipairs(files) do
-        M.read_file_async(filepath, function(content, err)
+        read_file_async(filepath, function(content, err)
             -- Treat errors as empty content and continue
             content_parts[i] = (not err and content) or ''
             
