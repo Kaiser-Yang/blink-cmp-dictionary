@@ -125,16 +125,11 @@ local function read_file_async(filepath, callback)
             
             uv.fs_read(fd, stat.size, 0, function(err_read, data)
                 uv.fs_close(fd, function() end)
-                local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
                 
                 if err_read then
-                    file_cache[filepath] = nil
-                    vim.schedule(function()
-                        for _, cb in ipairs(pending) do
-                            cb(nil, err_read)
-                        end
-                    end)
+                    handle_error(err_read)
                 else
+                    local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
                     file_cache[filepath] = { content = data }
                     vim.schedule(function()
                         for _, cb in ipairs(pending) do
@@ -159,26 +154,16 @@ local function read_dictionary_files_async(files, callback)
     -- Read all files asynchronously (each file uses per-file caching)
     local content_parts = {}
     local remaining = #files
-    local callback_invoked = false
     
     for i, filepath in ipairs(files) do
         read_file_async(filepath, function(content, err)
-            if callback_invoked then
-                return
-            end
-            
-            if err then
-                -- Don't fail immediately, just skip this file and continue
-                content_parts[i] = ''
-            else
-                content_parts[i] = content or ''
-            end
+            -- Treat errors as empty content and continue
+            content_parts[i] = (not err and content) or ''
             
             remaining = remaining - 1
             
             if remaining == 0 then
                 -- All files processed (some may have failed)
-                callback_invoked = true
                 local full_content = table.concat(content_parts, '\n')
                 -- Only return nil if content is empty or whitespace only
                 if full_content == '' or full_content:match('^%s*$') then
