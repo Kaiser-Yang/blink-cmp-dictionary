@@ -72,9 +72,10 @@ opts = {
 
 ## 📦 Installation
 
-## 📦 Installation
-
 Add the plugin to your package manager, and make sure it is loaded before `blink.cmp`.
+
+> [!TIP]
+> 💡 **Recommended:** Use the default `force_fallback` configuration. The plugin will automatically use the pure Lua fallback only when `fzf` is not available, giving you the best performance in all scenarios!
 
 ### 🔌 lazy.nvim
 
@@ -141,8 +142,6 @@ Add the plugin to your package manager, and make sure it is loaded before `blink
     }
 }
 ```
-
-## 🚀 Quick Start
 
 ## 🚀 Quick Start
 
