@@ -234,7 +234,7 @@ end
 --- Read a single file asynchronously using libuv with caching (internal function)
 --- @param filepath string
 --- @param callback function(string|nil, string|nil) Called with (content, error)
---- @param use_cache? boolean # Whether to use file cache (default: true)
+--- @param use_cache? boolean Whether to use file cache (default: true)
 local function read_file_async(filepath, callback, use_cache)
     use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
@@ -313,9 +313,9 @@ end
 
 --- Read dictionary files asynchronously and concatenate the content
 --- Accepts either a single file path (string) or multiple file paths (string[])
---- @param files string|string[] # Single file path or list of dictionary file paths
+--- @param files string|string[] Single file path or list of dictionary file paths
 --- @param callback function(string|nil) Called with content or nil on error
---- @param use_cache? boolean # Whether to use file cache (default: true)
+--- @param use_cache? boolean Whether to use file cache (default: true)
 function M.read_dictionary_files_async(files, callback, use_cache)
     use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
