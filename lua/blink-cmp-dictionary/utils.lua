@@ -236,9 +236,7 @@ end
 --- @param callback function(string|nil, string|nil) Called with (content, error)
 --- @param use_cache? boolean # Whether to use file cache (default: true)
 function M.read_file_async(filepath, callback, use_cache)
-    if use_cache == nil then
-        use_cache = true
-    end
+    use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
     -- Check if already cached (only if caching is enabled)
     if use_cache and file_cache[filepath] and file_cache[filepath].content then
@@ -318,9 +316,7 @@ end
 --- @param callback function(string|nil) Called with content or nil on error
 --- @param use_cache? boolean # Whether to use file cache (default: true)
 function M.read_dictionary_files_async(files, callback, use_cache)
-    if use_cache == nil then
-        use_cache = true
-    end
+    use_cache = use_cache ~= false  -- Default to true unless explicitly false
     
     if not files or #files == 0 then
         callback(nil)
