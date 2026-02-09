@@ -43,10 +43,12 @@ end
 
 --- @param feature blink-cmp-dictionary.Options
 --- @param result string[]
+--- @param prefix string
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
-local function assemble_completion_items_from_output(feature, result)
+local function assemble_completion_items_from_output(feature, result, prefix)
+    local max_items = feature.max_items or 100
     local items = {}
-    for i, v in ipairs(feature.separate_output(table.concat(result, '\n'))) do
+    for i, v in ipairs(feature.separate_output(table.concat(result, '\n'), prefix, max_items)) do
         items[i] = {
             label = feature.get_label(v),
             kind_name = feature.get_kind_name(v),
@@ -255,11 +257,13 @@ function DictionarySource:get_completions(context, callback)
         fallback.load_dictionaries(files)
         
         -- Perform synchronous search using fallback
-        local results = fallback.search(prefix, 100)
+        local max_items = dictionary_source_config.max_items or 100
+        local results = fallback.search(prefix, max_items)
         if utils.truthy(results) then
             local match_list = assemble_completion_items_from_output(
                 dictionary_source_config,
-                results)
+                results,
+                prefix)
             vim.iter(match_list):each(function(match)
                 process_completion_item(match, context, items)
             end)
@@ -310,7 +314,8 @@ function DictionarySource:get_completions(context, callback)
                     
                     local match_list = assemble_completion_items_from_output(
                         dictionary_source_config,
-                        lines)
+                        lines,
+                        prefix)
                     vim.iter(match_list):each(function(match)
                         process_completion_item(match, context, items)
                     end)

@@ -4,6 +4,7 @@
 --- It runs synchronously and may have performance issues with large dictionaries
 
 local M = {}
+local utils = require('blink-cmp-dictionary.utils')
 
 --- @class blink-cmp-dictionary.TrieNode
 --- @field children table<string, blink-cmp-dictionary.TrieNode> # Child nodes
@@ -88,66 +89,6 @@ local function trie_remove(word, filepath)
             end
         end
     end
-end
-
---- Calculate fuzzy match score for a word against a pattern
---- Returns a score (higher is better) or nil if no match
---- Based on fzy algorithm: consecutive matches and position bonuses
---- @param word string
---- @param pattern string
---- @return number|nil # Score or nil if no match
-local function fuzzy_match_score(word, pattern)
-    if pattern == "" then
-        return 0
-    end
-    
-    local word_lower = word:lower()
-    local pattern_lower = pattern:lower()
-    
-    -- Check if all pattern characters exist in word (in order)
-    local word_idx = 1
-    local pattern_idx = 1
-    local match_positions = {}
-    
-    while pattern_idx <= #pattern_lower and word_idx <= #word_lower do
-        if word_lower:sub(word_idx, word_idx) == pattern_lower:sub(pattern_idx, pattern_idx) then
-            table.insert(match_positions, word_idx)
-            pattern_idx = pattern_idx + 1
-        end
-        word_idx = word_idx + 1
-    end
-    
-    -- If not all pattern characters matched, no match
-    if pattern_idx <= #pattern_lower then
-        return nil
-    end
-    
-    -- Calculate score based on match positions
-    local score = 0
-    local last_pos = nil
-    
-    for i, pos in ipairs(match_positions) do
-        -- Bonus for matches at the beginning
-        if pos == 1 then
-            score = score + 100
-        end
-        
-        -- Bonus for consecutive matches (skip first match)
-        if last_pos and pos == last_pos + 1 then
-            score = score + 50
-        end
-        
-        -- Penalty for later positions (prefer earlier matches)
-        score = score - pos
-        
-        last_pos = pos
-    end
-    
-    -- Bonus for shorter words (prefer exact or close matches)
-    -- Cap at 0 to avoid negative bonuses for long words
-    score = score + math.max(0, 100 - #word_lower)
-    
-    return score
 end
 
 --- Search in trie by traversing the entire pattern
@@ -246,7 +187,7 @@ function M.search(prefix, max_results)
     -- Score and filter candidates
     local matches = {}
     for word, _ in pairs(candidates) do
-        local score = fuzzy_match_score(word, prefix)
+        local score = utils.fuzzy_match_score(word, prefix)
         if score then
             table.insert(matches, {word = word, score = score})
         end

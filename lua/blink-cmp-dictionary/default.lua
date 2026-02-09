@@ -55,7 +55,6 @@ local function default_get_command_args(prefix, command)
             '--no-messages',
             '--no-filename',
             '--ignore-case',
-            '--max-count=100',
             '-F', --Fixed strings
             '--',
             prefix,
@@ -64,7 +63,6 @@ local function default_get_command_args(prefix, command)
         return {
             '--color=never',
             '--ignore-case',
-            '--max-count=100',
             '-F', --Fixed strings
             '--',
             prefix,
@@ -88,13 +86,13 @@ local function default_on_error(return_value, standard_error)
     return false
 end
 
-local function default_separate_output(output)
+local function default_separate_output(output, prefix, max_items)
     local items = {}
     for line in output:gmatch("[^\r\n]+") do
         table.insert(items, line)
-        if #items == 100 then break end
     end
-    return items
+    -- Use fuzzy scoring to get top matches
+    return utils.get_top_matches(items, prefix, max_items)
 end
 
 local function default_get_label(item)
@@ -146,6 +144,8 @@ return {
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
+    -- Maximum number of items to return from search (default: 100)
+    max_items = 100,
     -- Whether or not to capitalize the first letter of the word
     capitalize_first = default_capitalize_first,
     -- Whether or not to capitalize the whole word
