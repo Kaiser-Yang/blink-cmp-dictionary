@@ -9,9 +9,8 @@ local fallback = require('blink-cmp-dictionary.fallback')
 -- No longer need plenary.job - using native vim.system instead
 
 -- Cache for individual dictionary file contents
--- Key: file path, Value: { content = string } or { loading = true, pending_callbacks = {callbacks} }
-local file_cache = {}
-local uv = vim.uv or vim.loop
+-- Note: Cache is now managed in utils.lua
+
 
 --- @type blink.cmp.Source
 --- @diagnostic disable-next-line: missing-fields
@@ -114,103 +113,6 @@ local function get_all_dictionary_files()
     return res
 end
 
---- Read a single file asynchronously using libuv with caching
---- @param filepath string
---- @param callback function(string|nil, string|nil) Called with (content, error)
-local function read_file_async(filepath, callback)
-    -- Check if already cached
-    if file_cache[filepath] and file_cache[filepath].content then
-        callback(file_cache[filepath].content, nil)
-        return
-    end
-    
-    -- Check if already loading
-    if file_cache[filepath] and file_cache[filepath].loading then
-        -- Add callback to pending list
-        table.insert(file_cache[filepath].pending_callbacks, callback)
-        return
-    end
-    
-    -- Mark as loading and add the initial callback to pending list
-    file_cache[filepath] = { loading = true, pending_callbacks = { callback } }
-    
-    -- Helper to handle errors for this specific filepath
-    local function handle_error(error_msg)
-        local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
-        file_cache[filepath] = nil
-        vim.schedule(function()
-            for _, cb in ipairs(pending) do
-                cb(nil, error_msg)
-            end
-        end)
-    end
-    
-    uv.fs_open(filepath, 'r', 438, function(err_open, fd)
-        if err_open or not fd then
-            handle_error(err_open or 'Failed to open file')
-            return
-        end
-        
-        uv.fs_fstat(fd, function(err_stat, stat)
-            if err_stat or not stat then
-                uv.fs_close(fd, function() end)
-                handle_error(err_stat or 'Failed to stat file')
-                return
-            end
-            
-            uv.fs_read(fd, stat.size, 0, function(err_read, data)
-                uv.fs_close(fd, function() end)
-                
-                if err_read then
-                    handle_error(err_read)
-                else
-                    local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
-                    file_cache[filepath] = { content = data }
-                    vim.schedule(function()
-                        for _, cb in ipairs(pending) do
-                            cb(data, nil)
-                        end
-                    end)
-                end
-            end)
-        end)
-    end)
-end
-
---- Read dictionary files asynchronously and concatenate the content
---- @param files string[]
---- @param callback function(string|nil) Called with content or nil on error
-local function read_dictionary_files_async(files, callback)
-    if not files or #files == 0 then
-        callback(nil)
-        return
-    end
-    
-    -- Read all files asynchronously (each file uses per-file caching)
-    local content_parts = {}
-    local remaining = #files
-    
-    for i, filepath in ipairs(files) do
-        read_file_async(filepath, function(content, err)
-            -- Treat errors as empty content and continue
-            content_parts[i] = (not err and content) or ''
-            
-            remaining = remaining - 1
-            
-            if remaining == 0 then
-                -- All files processed (some may have failed)
-                local full_content = table.concat(content_parts, '\n')
-                -- Only return nil if content is empty or whitespace only
-                if full_content == '' or full_content:match('^%s*$') then
-                    callback(nil)
-                else
-                    callback(full_content)
-                end
-            end
-        end)
-    end
-end
-
 --- Helper function to process completion items with capitalization
 --- @param match blink-cmp-dictionary.DictionaryCompletionItem
 --- @param context blink.cmp.Context
@@ -295,23 +197,28 @@ function DictionarySource:get_completions(context, callback)
     if force_fallback or not utils.truthy(cmd) then
         local files = get_all_dictionary_files()
         
-        -- Load/refresh dictionaries (uses file-based caching internally)
+        -- Load/refresh dictionaries asynchronously
         -- Pass separate_output function to parse dictionary files
-        fallback.load_dictionaries(files, dictionary_source_config.separate_output)
-        
-        -- Perform synchronous search using fallback
-        local results = fallback.search(prefix, max_items)
-        if utils.truthy(results) then
-            -- fallback.search already returns scored and limited words
-            -- No need to call separate_output again
-            local match_list = assemble_completion_items_from_words(
-                dictionary_source_config,
-                results)
-            vim.iter(match_list):each(function(match)
-                process_completion_item(match, context, items)
-            end)
-        end
-        transformed_callback()
+        fallback.load_dictionaries(files, dictionary_source_config.separate_output, function(success)
+            if not success then
+                transformed_callback()
+                return
+            end
+            
+            -- Perform search using fallback
+            local results = fallback.search(prefix, max_items)
+            if utils.truthy(results) then
+                -- fallback.search already returns scored and limited words
+                -- No need to call separate_output again
+                local match_list = assemble_completion_items_from_words(
+                    dictionary_source_config,
+                    results)
+                vim.iter(match_list):each(function(match)
+                    process_completion_item(match, context, items)
+                end)
+            end
+            transformed_callback()
+        end)
         return cancel_fun
     end
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix, cmd)
@@ -384,7 +291,7 @@ function DictionarySource:get_completions(context, callback)
             end
         end
         
-        read_dictionary_files_async(files, function(content)
+        utils.read_dictionary_files_async(files, function(content)
             if read_obj.cancelled then
                 return
             end
