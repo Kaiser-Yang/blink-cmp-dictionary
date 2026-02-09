@@ -14,7 +14,7 @@ local file_enabled = {}
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
 --- @param separate_output? function # Function to separate file content into words
---- @param callback function() # Callback called when loading completes
+--- @param callback function(number, string|nil) # Callback called with (return_code, standard_error)
 function M.load_dictionaries(files, separate_output, callback)
     if not files or #files == 0 then
         -- Don't clear cache - just mark all files as disabled
@@ -22,7 +22,7 @@ function M.load_dictionaries(files, separate_output, callback)
             file_enabled[filepath] = false
         end
         if callback then
-            callback()
+            callback(0, nil)  -- Success - no errors
         end
         return
     end
@@ -54,7 +54,7 @@ function M.load_dictionaries(files, separate_output, callback)
     if #files_to_load == 0 then
         -- All files already cached
         if callback then
-            callback()
+            callback(0, nil)  -- Success - no errors
         end
         return
     end
@@ -79,7 +79,7 @@ function M.load_dictionaries(files, separate_output, callback)
         end
         
         if callback then
-            callback()
+            callback(return_code, standard_error)  -- Pass errors through
         end
     end, false)  -- Disable cache in utils to let fallback manage its own cache
 end

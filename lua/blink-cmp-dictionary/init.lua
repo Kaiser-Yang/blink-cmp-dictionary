@@ -195,7 +195,17 @@ function DictionarySource:get_completions(context, callback)
         
         -- Load/refresh dictionaries asynchronously
         -- Pass separate_output function to parse dictionary files
-        fallback.load_dictionaries(files, dictionary_source_config.separate_output, function()
+        fallback.load_dictionaries(files, dictionary_source_config.separate_output, function(return_code, standard_error)
+            -- Check for errors and call on_error if needed
+            if return_code ~= 0 and utils.truthy(standard_error) then
+                if dictionary_source_config.on_error(return_code, standard_error) then
+                    -- on_error returned true, stop processing
+                    transformed_callback()
+                    return
+                end
+                -- on_error returned false, continue with available data
+            end
+            
             -- Perform search using fallback
             local results = fallback.search(prefix, max_items)
             if utils.truthy(results) then
