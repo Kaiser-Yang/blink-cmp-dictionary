@@ -234,32 +234,45 @@ end
 --- Read a single file asynchronously using libuv with caching
 --- @param filepath string
 --- @param callback function(string|nil, string|nil) Called with (content, error)
-function M.read_file_async(filepath, callback)
-    -- Check if already cached
-    if file_cache[filepath] and file_cache[filepath].content then
+--- @param use_cache? boolean # Whether to use file cache (default: true)
+function M.read_file_async(filepath, callback, use_cache)
+    if use_cache == nil then
+        use_cache = true
+    end
+    
+    -- Check if already cached (only if caching is enabled)
+    if use_cache and file_cache[filepath] and file_cache[filepath].content then
         callback(file_cache[filepath].content, nil)
         return
     end
     
-    -- Check if already loading
-    if file_cache[filepath] and file_cache[filepath].loading then
+    -- Check if already loading (only if caching is enabled)
+    if use_cache and file_cache[filepath] and file_cache[filepath].loading then
         -- Add callback to pending list
         table.insert(file_cache[filepath].pending_callbacks, callback)
         return
     end
     
-    -- Mark as loading and add the initial callback to pending list
-    file_cache[filepath] = { loading = true, pending_callbacks = { callback } }
+    -- Mark as loading and add the initial callback to pending list (only if caching is enabled)
+    if use_cache then
+        file_cache[filepath] = { loading = true, pending_callbacks = { callback } }
+    end
     
     -- Helper to handle errors for this specific filepath
     local function handle_error(error_msg)
-        local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
-        file_cache[filepath] = nil
-        vim.schedule(function()
-            for _, cb in ipairs(pending) do
-                cb(nil, error_msg)
-            end
-        end)
+        if use_cache then
+            local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
+            file_cache[filepath] = nil
+            vim.schedule(function()
+                for _, cb in ipairs(pending) do
+                    cb(nil, error_msg)
+                end
+            end)
+        else
+            vim.schedule(function()
+                callback(nil, error_msg)
+            end)
+        end
     end
     
     uv.fs_open(filepath, 'r', 438, function(err_open, fd)
@@ -281,13 +294,19 @@ function M.read_file_async(filepath, callback)
                 if err_read then
                     handle_error(err_read)
                 else
-                    local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
-                    file_cache[filepath] = { content = data }
-                    vim.schedule(function()
-                        for _, cb in ipairs(pending) do
-                            cb(data, nil)
-                        end
-                    end)
+                    if use_cache then
+                        local pending = file_cache[filepath] and file_cache[filepath].pending_callbacks or {}
+                        file_cache[filepath] = { content = data }
+                        vim.schedule(function()
+                            for _, cb in ipairs(pending) do
+                                cb(data, nil)
+                            end
+                        end)
+                    else
+                        vim.schedule(function()
+                            callback(data, nil)
+                        end)
+                    end
                 end
             end)
         end)
@@ -297,13 +316,18 @@ end
 --- Read dictionary files asynchronously and concatenate the content
 --- @param files string[]
 --- @param callback function(string|nil) Called with content or nil on error
-function M.read_dictionary_files_async(files, callback)
+--- @param use_cache? boolean # Whether to use file cache (default: true)
+function M.read_dictionary_files_async(files, callback, use_cache)
+    if use_cache == nil then
+        use_cache = true
+    end
+    
     if not files or #files == 0 then
         callback(nil)
         return
     end
     
-    -- Read all files asynchronously (each file uses per-file caching)
+    -- Read all files asynchronously (each file uses per-file caching based on use_cache)
     local content_parts = {}
     local remaining = #files
     
@@ -324,7 +348,7 @@ function M.read_dictionary_files_async(files, callback)
                     callback(full_content)
                 end
             end
-        end)
+        end, use_cache)
     end
 end
 

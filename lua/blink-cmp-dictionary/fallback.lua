@@ -14,8 +14,7 @@ local file_word_lists = {}
 --- @param callback function(boolean) # Callback called with success status
 function M.load_dictionaries(files, separate_output, callback)
     if not files or #files == 0 then
-        -- Clear all cached words
-        file_word_lists = {}
+        -- Don't clear cache - files may not have changed, just no files in current context
         if callback then
             callback(true)
         end
@@ -51,7 +50,7 @@ function M.load_dictionaries(files, separate_output, callback)
         return
     end
     
-    -- Use async file reading from utils
+    -- Use async file reading from utils (disable utils cache to avoid duplicate data in memory)
     local remaining = #files_to_load
     for _, filepath in ipairs(files_to_load) do
         utils.read_file_async(filepath, function(content, err)
@@ -68,7 +67,7 @@ function M.load_dictionaries(files, separate_output, callback)
             if remaining == 0 and callback then
                 callback(true)
             end
-        end)
+        end, false)  -- Disable cache in utils to let fallback manage its own cache
     end
 end
 
