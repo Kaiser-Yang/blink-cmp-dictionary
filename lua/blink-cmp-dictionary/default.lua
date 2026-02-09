@@ -5,9 +5,8 @@ local utils = require('blink-cmp-dictionary.utils')
 -- Default iskeyword value matching vim's default
 local DEFAULT_ISKEYWORD = '@,48-57,_,192-255'
 
--- Cache for word_pattern to avoid rebuilding on every call
-local cached_iskeyword = nil
-local cached_pattern = nil
+-- Cache for word_patterns: maps iskeyword string to compiled pattern
+local pattern_cache = {}
 
 --- Parse vim's iskeyword option and build an lpeg pattern
 --- @param iskeyword string # The iskeyword string (e.g., "@,48-57,_,192-255")
@@ -58,7 +57,7 @@ local function build_word_character_pattern(iskeyword)
 end
 
 --- Build the word_pattern based on current iskeyword setting
---- Uses caching to avoid rebuilding on every call
+--- Uses caching with iskeyword as key to avoid rebuilding patterns
 --- @param bufnr number|nil # Buffer number (nil uses current buffer)
 --- @return table # An lpeg pattern for matching words
 local function build_word_pattern(bufnr)
@@ -69,9 +68,9 @@ local function build_word_pattern(bufnr)
         iskeyword = vim.bo.iskeyword or DEFAULT_ISKEYWORD
     end
     
-    -- Check if we can use cached pattern
-    if cached_iskeyword == iskeyword and cached_pattern then
-        return cached_pattern
+    -- Check if we have a cached pattern for this iskeyword
+    if pattern_cache[iskeyword] then
+        return pattern_cache[iskeyword]
     end
     
     -- Build new pattern and cache it
@@ -89,9 +88,8 @@ local function build_word_pattern(bufnr)
         ) ^ 0
     )
     
-    -- Update cache
-    cached_iskeyword = iskeyword
-    cached_pattern = pattern
+    -- Cache the pattern with iskeyword as key
+    pattern_cache[iskeyword] = pattern
     
     return pattern
 end
