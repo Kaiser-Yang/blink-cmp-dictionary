@@ -121,6 +121,9 @@ dictionary_files = nil,
 -- All .txt files in these directories will be treated as dictionary files
 -- example: { vim.fn.expand('~/.config/nvim/dictionary') }
 dictionary_directories = nil,
+-- Maximum number of items to return from search (default: 100)
+-- Items are scored using fuzzy matching and the top N are returned
+max_items = 100,
 ```
 
 > [!NOTE]
