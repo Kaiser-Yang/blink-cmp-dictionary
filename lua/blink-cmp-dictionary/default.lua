@@ -5,6 +5,10 @@ local utils = require('blink-cmp-dictionary.utils')
 -- Default iskeyword value matching vim's default
 local DEFAULT_ISKEYWORD = '@,48-57,_,192-255'
 
+-- Cache for word_pattern to avoid rebuilding on every call
+local cached_iskeyword = nil
+local cached_pattern = nil
+
 --- Parse vim's iskeyword option and build an lpeg pattern
 --- @param iskeyword string # The iskeyword string (e.g., "@,48-57,_,192-255")
 --- @return table # An lpeg pattern matching word characters
@@ -54,6 +58,7 @@ local function build_word_character_pattern(iskeyword)
 end
 
 --- Build the word_pattern based on current iskeyword setting
+--- Uses caching to avoid rebuilding on every call
 --- @param bufnr number|nil # Buffer number (nil uses current buffer)
 --- @return table # An lpeg pattern for matching words
 local function build_word_pattern(bufnr)
@@ -64,20 +69,31 @@ local function build_word_pattern(bufnr)
         iskeyword = vim.bo.iskeyword or DEFAULT_ISKEYWORD
     end
     
-    -- Build pattern from current iskeyword setting
+    -- Check if we can use cached pattern
+    if cached_iskeyword == iskeyword and cached_pattern then
+        return cached_pattern
+    end
+    
+    -- Build new pattern and cache it
     local word_character = build_word_character_pattern(iskeyword)
     local non_word_character = vim.lpeg.P(1) - word_character
     
     -- A word can start with any number of non-word characters, followed by
     -- at least one word character, and then any number of non-word characters.
     -- The word part is captured.
-    return vim.lpeg.Ct(
+    local pattern = vim.lpeg.Ct(
         (
             non_word_character ^ 0
             * vim.lpeg.C(word_character ^ 1)
             * non_word_character ^ 0
         ) ^ 0
     )
+    
+    -- Update cache
+    cached_iskeyword = iskeyword
+    cached_pattern = pattern
+    
+    return pattern
 end
 
 --- @param prefix string # The prefix to be matched
