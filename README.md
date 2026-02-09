@@ -45,8 +45,6 @@ You can use `checkhealth blink-cmp-dictionary` to check if the optional tools ar
 
 ### 🚀 Fallback Mode (Pure Lua - No Dependencies!)
 
-### 🚀 Fallback Mode (Pure Lua - No Dependencies!)
-
 **Default Behavior:**
 By default, if `fzf` is **not found**, the plugin will **directly fall back** to a pure Lua implementation instead of trying `rg` or `grep`. This provides the best user experience with excellent performance.
 
