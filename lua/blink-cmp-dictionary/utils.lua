@@ -372,4 +372,12 @@ function M.read_dictionary_files_async(files, callback, use_cache)
     end
 end
 
+function M.ensure_list(v)
+    if type(v) == 'table' then
+        return v
+    else
+        return { v }
+    end
+end
+
 return M

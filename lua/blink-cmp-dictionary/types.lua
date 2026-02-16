@@ -11,8 +11,8 @@
 
 --- @class (exact) blink-cmp-dictionary.Options
 --- @field get_prefix? string|fun(context: blink.cmp.Context): string
---- @field dictionary_files? string[]|fun(): string[]
---- @field dictionary_directories? string[]|fun(): string[]
+--- @field dictionary_files? string|string[]|fun(): string[]|string
+--- @field dictionary_directories? string|string[]|fun(): string[]|string
 --- @field force_fallback? boolean # Force using fallback mode instead of external commands (default: vim.fn.executable('fzf') == 0)
 --- @field capitalize_first? boolean|fun(context: blink.cmp.Context, match: blink-cmp-dictionary.DictionaryCompletionItem): boolean
 --- @field capitalize_whole_word? boolean|fun(context: blink.cmp.Context, match: blink-cmp-dictionary.DictionaryCompletionItem): boolean

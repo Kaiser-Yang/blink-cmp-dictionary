@@ -92,8 +92,8 @@ end
 --- @return string[]
 local function get_all_dictionary_files()
     local res = {}
-    local dirs = utils.get_option(dictionary_source_config.dictionary_directories)
-    local files = utils.get_option(dictionary_source_config.dictionary_files)
+    local dirs = utils.ensure_list(utils.get_option(dictionary_source_config.dictionary_directories))
+    local files = utils.ensure_list(utils.get_option(dictionary_source_config.dictionary_files))
     if utils.truthy(dirs) then
         for _, dir in ipairs(dirs) do
             for _, file in ipairs(vim.fn.globpath(dir, '**/*.txt', true, true)) do
