@@ -94,7 +94,7 @@ Add the plugin to your package manager, and make sure it is loaded before `blink
                 dictionary = {
                     module = 'blink-cmp-dictionary',
                     name = 'Dict',
-                    min_keyword_length = 0,
+                    min_keyword_length = 1,
                     opts = {
                         -- Optional: explicitly force fallback mode
                         -- (By default, fallback is used when fzf is not found)
@@ -128,7 +128,7 @@ Add the plugin to your package manager, and make sure it is loaded before `blink
                     -- - In fallback mode: No impact on performance regardless of value
                     -- - With fzf: Higher values may improve performance
                     -- - With other commands (rg/grep): Higher values significantly improve performance
-                    min_keyword_length = 0,
+                    min_keyword_length = 1,
                     -- options for blink-cmp-dictionary
                     opts = {
                         -- put your dictionary files here
@@ -471,7 +471,7 @@ opts = {
             dictionary = {
                 module = 'blink-cmp-dictionary',
                 name = 'Dict',
-                min_keyword_length = 0,  -- Adjust based on your search command
+                min_keyword_length = 1,  -- Adjust based on your search command
                 -- Smaller values improve performance universally
                 max_items = 8, -- blink-cmp-dictionary will inherit this, the default is 100
             }

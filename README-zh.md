@@ -92,7 +92,7 @@ opts = {
                 dictionary = {
                     module = 'blink-cmp-dictionary',
                     name = 'Dict',
-                    min_keyword_length = 0,
+                    min_keyword_length = 1,
                     opts = {
                         -- 可选：显式强制回退模式
                         -- （默认情况下，当找不到 fzf 时使用回退）
@@ -126,7 +126,7 @@ opts = {
                     -- - 在回退模式下：无论值如何都不影响性能
                     -- - 使用 fzf：较高的值可能会提高性能
                     -- - 使用其他命令（rg/grep）：较高的值会显著提高性能
-                    min_keyword_length = 0,
+                    min_keyword_length = 1,
                     -- blink-cmp-dictionary 的选项
                     opts = {
                         -- 在这里放置你的词典文件
@@ -450,7 +450,7 @@ opts = {
             dictionary = {
                 module = 'blink-cmp-dictionary',
                 name = 'Dict',
-                min_keyword_length = 0,  -- 根据你的搜索命令调整
+                min_keyword_length = 1,  -- 根据你的搜索命令调整
                 -- 较小的值普遍提高性能
                 max_items = 8, -- blink-cmp-dictionary 将继承此值，默认值为 100
             }
