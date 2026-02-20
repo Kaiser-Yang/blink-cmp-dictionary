@@ -5,7 +5,7 @@ local utils = require('blink-cmp-dictionary.utils')
 local word_pattern
 do
     -- Only support utf-8
-    local word_character = vim.lpeg.R("az", "AZ", "09", "\128\255") + vim.lpeg.P("_") + vim.lpeg.P("-")
+    local word_character = vim.lpeg.R("az", "AZ", "09", "\128\255") + vim.lpeg.P("-")
 
     local non_word_character = vim.lpeg.P(1) - word_character
 
