@@ -280,18 +280,16 @@ function DictionarySource:get_completions(context, callback)
         return obj
     end
     
+    local read_obj = { cancelled = false }
+    -- Set cancel_fun immediately to handle race conditions
+    cancel_fun = function()
+        read_obj.cancelled = true
+        if cancel_fun_ref.fn then
+            cancel_fun_ref.fn()
+        end
+    end
     -- If we have files, read them asynchronously
     if utils.truthy(files) then
-        local read_obj = { cancelled = false }
-        
-        -- Set cancel_fun immediately to handle race conditions
-        cancel_fun = function()
-            read_obj.cancelled = true
-            if cancel_fun_ref.fn then
-                cancel_fun_ref.fn()
-            end
-        end
-        
         utils.read_dictionary_files_async(files, function(return_code, standard_error, content)
             if read_obj.cancelled then
                 return
@@ -320,10 +318,10 @@ function DictionarySource:get_completions(context, callback)
             run_search_command(content)
         end)
     else
-        -- No files, do not perform any operation
-        transformed_callback()
+        -- No files, run the command directly, users may set files in command args.
+        run_search_command()
     end
-    
+
     return cancel_fun
 end
 
