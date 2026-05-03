@@ -333,13 +333,11 @@ function DictionarySource:resolve(item, callback)
     local documentation = item.data and item.data.documentation or nil
     if not item.data then
         transformed_callback()
+        return
     elseif type(documentation) == 'string' then
         resolved_item.documentation = documentation
         transformed_callback()
         return
-    end
-    if documentation == nil then
-    	transformed_callback()
     end
     assert(documentation ~= nil)
     ---@diagnostic disable-next-line: undefined-field
