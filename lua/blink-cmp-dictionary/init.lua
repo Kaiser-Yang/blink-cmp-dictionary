@@ -50,7 +50,7 @@ local function assemble_completion_items_from_words(feature, words)
             label = feature.get_label(v),
             kind_name = feature.get_kind_name(v),
             insert_text = feature.get_insert_text(v),
-            documentation = feature.get_documentation(v),
+            data = { documentation = feature.get_documentation(v) },
         }
     end
     -- feature.configure_score_offset(items)
@@ -326,22 +326,28 @@ function DictionarySource:get_completions(context, callback)
 end
 
 function DictionarySource:resolve(item, callback)
+    local resolved_item = vim.deepcopy(item)
     local transformed_callback = function()
-        callback(item)
+        callback(resolved_item)
     end
-    if type(item.documentation) == 'string' or not item.documentation then
+    local documentation = item.data and item.data.documentation or nil
+    if not item.data then
+        transformed_callback()
+    elseif type(documentation) == 'string' then
+        resolved_item.documentation = documentation
         transformed_callback()
         return
     end
+    assert(documentation ~= nil)
     ---@diagnostic disable-next-line: undefined-field
-    if not utils.truthy(utils.get_option(item.documentation.get_command)) then
-        item.documentation = nil
+    if not utils.truthy(utils.get_option(documentation.get_command)) then
+        resolved_item.documentation = nil
         transformed_callback()
         return
     end
     
-    local cmd = utils.get_option(item.documentation.get_command)
-    local args = utils.get_option(item.documentation.get_command_args)
+    local cmd = utils.get_option(documentation.get_command)
+    local args = utils.get_option(documentation.get_command_args)
     
     -- Build full command
     local full_cmd = { cmd }
@@ -353,16 +359,16 @@ function DictionarySource:resolve(item, callback)
         vim.schedule(function()
             if result.code ~= 0 and result.stderr and result.stderr ~= '' then
                 ---@diagnostic disable-next-line: undefined-field
-                if item.documentation.on_error(result.code, result.stderr) then
+                if documentation.on_error(result.code, result.stderr) then
                     return
                 end
             end
             
             if result.stdout and result.stdout ~= '' then
                 ---@diagnostic disable-next-line: undefined-field
-                item.documentation = item.documentation.resolve_documentation(result.stdout)
+                resolved_item.documentation = documentation.resolve_documentation(result.stdout)
             else
-                item.documentation = nil
+                resolved_item.documentation = nil
             end
             transformed_callback()
         end)
