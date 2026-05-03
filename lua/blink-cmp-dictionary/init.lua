@@ -338,6 +338,9 @@ function DictionarySource:resolve(item, callback)
         transformed_callback()
         return
     end
+    if documentation == nil then
+    	transformed_callback()
+    end
     assert(documentation ~= nil)
     ---@diagnostic disable-next-line: undefined-field
     if not utils.truthy(utils.get_option(documentation.get_command)) then
@@ -367,8 +370,6 @@ function DictionarySource:resolve(item, callback)
             if result.stdout and result.stdout ~= '' then
                 ---@diagnostic disable-next-line: undefined-field
                 resolved_item.documentation = documentation.resolve_documentation(result.stdout)
-            else
-                resolved_item.documentation = nil
             end
             transformed_callback()
         end)
