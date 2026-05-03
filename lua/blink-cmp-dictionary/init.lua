@@ -118,7 +118,7 @@ local function process_completion_item(match, context, items)
         label = match.label,
         insertText = match.insert_text,
         kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
-        documentation = match.documentation,
+        data = match.data,
     }
     if utils.get_option(
         dictionary_source_config.capitalize_first,
