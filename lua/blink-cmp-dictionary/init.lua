@@ -331,7 +331,7 @@ function DictionarySource:resolve(item, callback)
         callback(resolved_item)
     end
     local documentation = item.data and item.data.documentation or nil
-    if not item.data then
+    if not documentation then
         transformed_callback()
         return
     elseif type(documentation) == 'string' then
@@ -339,7 +339,6 @@ function DictionarySource:resolve(item, callback)
         transformed_callback()
         return
     end
-    assert(documentation ~= nil)
     ---@diagnostic disable-next-line: undefined-field
     if not utils.truthy(utils.get_option(documentation.get_command)) then
         resolved_item.documentation = nil
