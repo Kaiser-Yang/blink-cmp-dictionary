@@ -178,14 +178,12 @@ function DictionarySource:get_completions(context, callback)
 	-- Handle fallback mode: either forced or when cmd is not available
 	local force_fallback = dictionary_source_config.force_fallback or false
 	if force_fallback or not utils.truthy(cmd) then
-		local files = get_all_dictionary_files()
-
-		-- Load/refresh dictionaries asynchronously
-		-- Pass separate_output function to parse dictionary files
-		fallback.load_dictionaries(
-			files,
+		fallback.search(
+			get_all_dictionary_files(),
 			dictionary_source_config.separate_output,
-			function(return_code, standard_error)
+			prefix,
+			max_items,
+			function(return_code, standard_error, results)
 				-- Check for errors and call on_error if needed
 				if return_code ~= 0 then
 					if
@@ -198,12 +196,7 @@ function DictionarySource:get_completions(context, callback)
 					end
 					-- on_error returned false or not defined, continue with available data
 				end
-
-				-- Perform search using fallback
-				local results = fallback.search(prefix, max_items)
 				if utils.truthy(results) then
-					-- fallback.search already returns scored and limited words
-					-- No need to call separate_output again
 					local match_list = assemble_completion_items_from_words(dictionary_source_config, results)
 					vim.iter(match_list):each(function(match)
 						process_completion_item(leading, match, context, items)

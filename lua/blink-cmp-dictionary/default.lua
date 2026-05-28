@@ -86,8 +86,12 @@ end
 
 local function default_separate_output(output)
 	local items = {}
+	local seen = {}
 	for line in output:gmatch("[^\r\n]+") do
-		table.insert(items, line)
+		if not seen[line] then
+			seen[line] = true
+			table.insert(items, line)
+		end
 	end
 	return items
 end

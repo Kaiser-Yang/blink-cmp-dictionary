@@ -102,7 +102,7 @@ local function fuzzy_match_score(word, pattern)
 	local score = 0
 	local last_pos = nil
 
-	for i, pos in ipairs(match_positions) do
+	for _, pos in ipairs(match_positions) do
 		-- Bonus for matches at the beginning
 		if pos == 1 then
 			score = score + 100
