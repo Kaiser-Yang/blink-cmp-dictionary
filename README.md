@@ -170,7 +170,7 @@ dictionary_directories = nil,
 > ⚠️ All the dictionary files in `dictionary_files` and `dictionary_directories` will be
 > concatenated together. Make sure the files are different, otherwise there will be
 > duplicate words in the completion list. If your dictionary files are not separated by lines,
-> see [How to customize completion items](#how-to-customize-completion-items)
+> see [How to customize completion items](#-how-to-customize-completion-items)
 
 ## ⚙️ Default Configuration
 
