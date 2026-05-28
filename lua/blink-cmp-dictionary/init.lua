@@ -229,15 +229,10 @@ function DictionarySource:get_completions(context, callback)
 			table.insert(full_cmd, arg)
 		end
 
-		vim.system(full_cmd, {
-			text = true,
-			stdin = input_data,
-		}, function(result)
-			if obj.cancelled then
-				return
-			end
-
-			vim.schedule(function()
+		vim.system(
+			full_cmd,
+			{ text = true, stdin = input_data },
+			vim.schedule_wrap(function(result)
 				if obj.cancelled then
 					return
 				end
@@ -259,7 +254,7 @@ function DictionarySource:get_completions(context, callback)
 
 				transformed_callback()
 			end)
-		end)
+		)
 
 		cancel_fun_ref.fn = function()
 			obj.cancelled = true
