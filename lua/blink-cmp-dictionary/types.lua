@@ -26,3 +26,4 @@
 --- @field get_insert_text? fun(item: any): string
 --- @field get_documentation? fun(item: any): string|blink-cmp-dictionary.DocumentationCommand
 --- @field on_error? fun(return_value: number, standard_error: string): boolean
+--- @field get_leading? fun(context: blink.cmp.Context, prefix: string): boolean
