@@ -13,7 +13,7 @@ local file_enabled = {}
 
 --- Load dictionary files into memory with file-based caching
 --- @param files string[] # List of dictionary file paths
---- @param separate_output? function # Function to separate file content into words
+--- @param separate_output function # Function to separate file content into words
 --- @param callback function(number, string|nil) # Callback called with (return_code, standard_error)
 function M.load_dictionaries(files, separate_output, callback)
 	if not files or #files == 0 then
