@@ -65,6 +65,7 @@ end
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
 local function assemble_completion_items_from_output(feature, result, prefix, max_items, cmd)
 	-- First, call separate_output to parse the output
+	-- PERF:
 	local separated_items = feature.separate_output(result)
 
 	-- Optimization: if we have fewer items than max_items, or fzf output is already sorted,
@@ -80,6 +81,7 @@ local function assemble_completion_items_from_output(feature, result, prefix, ma
 			table.insert(top_items, separated_items[i])
 		end
 	else
+		-- PERF:
 		-- Apply fuzzy scoring and limit to max_items
 		top_items = utils.get_top_matches(separated_items, prefix, max_items)
 	end
@@ -222,30 +224,56 @@ function DictionarySource:get_completions(context, callback)
 			table.insert(full_cmd, arg)
 		end
 
+		local function handle_error(result)
+			if obj.cancelled then
+				return true
+			end
+
+			if result.code ~= 0 and result.stderr and result.stderr ~= "" then
+				if dictionary_source_config.on_error(result.code, result.stderr) then
+					return true
+				end
+			end
+			return false
+		end
+		local function handle_stdout(stdout)
+			if not utils.truthy(stdout) then
+				transformed_callback()
+				return
+			end
+			local match_list = assemble_completion_items_from_output(
+				dictionary_source_config,
+				stdout,
+				prefix,
+				max_items,
+				cmd -- Pass cmd for fzf optimization
+			)
+			vim.iter(match_list):each(function(match)
+				process_completion_item(leading, match, context, items)
+			end)
+			transformed_callback()
+		end
 		vim.system(
 			full_cmd,
 			{ text = true, stdin = input_data },
 			vim.schedule_wrap(function(result)
-				if obj.cancelled then
+				if handle_error(result) then
 					return
 				end
-
-				if result.code ~= 0 and result.stderr and result.stderr ~= "" then
-					if dictionary_source_config.on_error(result.code, result.stderr) then
-						return
-					end
+				if vim.fn.executable("head") == 0 or not utils.truthy(result.stdout) then
+					handle_stdout(result.stdout)
+					return
 				end
-
-				local output = result.stdout or ""
-				if utils.truthy(output) then
-					local match_list =
-						assemble_completion_items_from_output(dictionary_source_config, output, prefix, max_items, cmd) -- Pass cmd for fzf optimization
-					vim.iter(match_list):each(function(match)
-						process_completion_item(leading, match, context, items)
+				vim.system(
+					{ "head", "-n", tostring(max_items) },
+					{ text = true, stdin = result.stdout },
+					vim.schedule_wrap(function(result)
+						if handle_error(result) then
+							return
+						end
+						handle_stdout(result.stdout)
 					end)
-				end
-
-				transformed_callback()
+				)
 			end)
 		)
 
