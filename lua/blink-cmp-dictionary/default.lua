@@ -139,7 +139,11 @@ end
 
 local function default_get_leading(context, prefix)
 	local range = context.line:sub(context.bounds.start_col, context.cursor[2])
-	return #range >= #prefix and range:sub(-#prefix) == prefix and range:sub(1, -#prefix - 1) or ""
+	return #range >= #prefix
+			and range:sub(-#prefix) == prefix
+			and not vim.tbl_contains(context.providers, "lsp")
+			and range:sub(1, -#prefix - 1)
+		or ""
 end
 
 --- @type blink-cmp-dictionary.Options
